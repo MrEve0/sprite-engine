@@ -4,7 +4,8 @@
   "description": "javascript 16x16 tile based game engine",
   "main": "main.js",
   "scripts": {
-    "start": "electron main.js"
+    "start": "electron main.js",
+    "test": "electron ./test/test.js"
   },
   "keywords": [
     "game",
