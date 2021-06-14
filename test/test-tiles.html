@@ -21,12 +21,21 @@
         <script id="vertex-shader-2d" type="notjs">
             // an attribute will receive data from a buffer
             attribute vec4 a_position;
+            uniform vec2 camera_position;
+            uniform vec2 tile_size;
+            uniform vec2 map_resolution;
+            uniform vec2 resolution;
+            varying vec2 map_coord;
 
             // all shaders have a main function
             void main() {
                 // gl_Position is a special variable a vertex shader
                 // is responsible for setting
                 gl_Position = a_position;
+
+                vec2 map_size = tile_size * map_resolution;
+                vec2 center = camera_position / map_size;
+                map_coord = ( camera_position + a_position * 0.5 * resolution ) / map_size;
             }
         </script>
         <script id="fragment-shader-2d" type="notjs">
@@ -34,10 +43,20 @@
             // to pick one. mediump is a good default
             precision mediump float;
 
+            uniform sampler2D tiles;
+            uniform vec2 tile_size;
+            uniform vec2 map_resolution;
+
+            varying vec2 map_coord;
+
             void main() {
                 // gl_FragColor is a special variable a fragment shader
                 // is responsible for setting
                 gl_FragColor = vec4(0, 1, 0, 1);
+
+                vec2 map_location = map_coord * map_resolution;
+                vec2 map_position = floor ( map_location );
+                vec2 map_pixel = 0.5 + floor ( map_location / tile_size );
             }
         </script>
         <script src="gl-app-test.js"></script>
