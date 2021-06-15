@@ -1,161 +1,98 @@
-/* eslint no-console:0 consistent-return:0 */
-"use strict";
+var canvas = document.getElementById('canvas'),
+    gl = canvas.getContext("webgl"),
+    fs = require('fs'), // look up where the vertex data needs to go.
+    positionLocation,
+    // set the resolution
+    resolutionLocation,
+    buffer = gl.createBuffer(),
+    program;
 
-function createTexture() {
-    let texture = document.createElement('canvas'),
-        tctx = texture.getContext('2d');
+require.extensions['.glsl'] = function(module, filename){
+    module.exports = fs.readFileSync(filename, 'utf8').replace ( /^\s*|\s*$/, '' );
+};
 
-    texture.width = 216;
-    texture.height = 16;
-    tctx.font = "monospace 16px";
-    tctx.textBaseLine = "top";
-    tctx.fillStyle = "black";
+function createProgram ( vText, fText ) {
 
-    for (let i = 0; i < 26; i = i + 1) {
-        tctx.fillText(String.fromCharCode(65 + i), i * 8, 16);
-    }
-    return texture;
-}
+    var program = gl.createProgram (),
+        vert = gl.createShader ( gl.VERTEX_SHADER ),
+        frag = gl.createShader ( gl.FRAGMENT_SHADER ),
+        compiled;
 
-function createMapTexture ( string, width, height ) {
-    var map = document.createElement ( 'canvas' ),
-        ctx = map.getContext ( '2d' );
-
-    map.width = width;
-    map.height = height;
-
-    var data = ctx.getImagaData ( 0, 0, width, height );
-
-    for ( var i = 0; i < string.length; i = i + 1 ) {
-        var val = string [ i ].charCodeAt ( 0 );
-        data.data [ i * 4 ] = val < 65 ? 27 : val - 65;
+    gl.shaderSource ( vert, vText );
+    gl.compileShader ( vert );
+    compiled = gl.getShaderParameter ( vert, gl.COMPILE_STATUS );
+    if (!compiled) {
+        // Something went wrong during compilation; get the error
+        console.error ( gl.getShaderInfoLog ( vert ) );
     }
 
-    ctx.putImageData ( data, 0, 0 );
-
-    return map;
-}
-
-function resizeCanvasToDisplaySize(canvas) {
-    // Lookup the size the browser is displaying the canvas in CSS pixels.
-    const displayWidth = canvas.clientWidth;
-    const displayHeight = canvas.clientHeight;
-
-    // Check if the canvas is not the same size.
-    const needResize = canvas.width !== displayWidth ||
-        canvas.height !== displayHeight;
-
-    if (needResize) {
-        // Make the canvas the same size
-        canvas.width = displayWidth;
-        canvas.height = displayHeight;
+    gl.shaderSource ( frag, fText );
+    gl.compileShader ( frag );
+    compiled = gl.getShaderParameter ( frag, gl.COMPILE_STATUS );
+    if (!compiled) {
+        // Something went wrong during compilation; get the error
+        console.error ( gl.getShaderInfoLog ( frag ) );
     }
 
-    return needResize;
-}
-
-function createShader(gl, type, source) {
-    var shader = gl.createShader(type);
-    gl.shaderSource(shader, source);
-    gl.compileShader(shader);
-    var success = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
-    if (success) {
-        return shader;
-    }
-
-    console.log(gl.getShaderInfoLog(shader));
-    gl.deleteShader(shader);
-}
-
-function createProgram(gl, vertexShader, fragmentShader) {
-    var program = gl.createProgram();
-    gl.attachShader(program, vertexShader);
-    gl.attachShader(program, fragmentShader);
+    // Attach pre-existing shaders
+    gl.attachShader(program, vert);
+    gl.attachShader(program, frag);
     gl.linkProgram(program);
-    var success = gl.getProgramParameter(program, gl.LINK_STATUS);
-    if (success) {
-        return program;
-    }
 
-    console.log(gl.getProgramInfoLog(program));
-    gl.deleteProgram(program);
+    if ( !gl.getProgramParameter( program, gl.LINK_STATUS) ) {
+      var info = gl.getProgramInfoLog(program);
+      throw 'Could not compile WebGL program. \n\n' + info;
+
+    }
+    gl.useProgram(program);
+    positionLocation = gl.getAttribLocation(program, "a_position");
+    resolutionLocation = gl.getUniformLocation(program, "u_resolution");
+    return program;
 }
 
-function main() {
-    // Get A WebGL context
-    var canvas = document.querySelector("#canvas");
-    var gl = canvas.getContext("webgl", {
-        antialias: false
-    });
-    if (!gl) {
-        return;
+function resizeCanvas() {
+   canvas.width = window.innerWidth;
+   canvas.height = window.innerHeight;
+
+   /**
+    * Your drawings need to be inside this function otherwise they will be reset when
+    * you resize the browser window and the canvas goes will be cleared.
+    */
+   render();
+}
+resizeCanvas();
+
+function render() {
+
+    if (!program){
+        var vert = require('./vertex.glsl'),
+            frag = require('./fragment.glsl');
+
+        console.log ( vert, '\n', frag );
+        program = createProgram(gl, vert, frag );
     }
+    gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
 
-    // Get the strings for our GLSL shaders
-    var vertexShaderSource = document.querySelector("#vertex-shader-2d").text;
-    var fragmentShaderSource = document.querySelector("#fragment-shader-2d").text;
+    gl.enableVertexAttribArray(positionLocation);
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
 
-    // create GLSL shaders, upload the GLSL source, compile the shaders
-    var vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
-    var fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+    // setup a rectangle from 10,20 to 80,30 in pixels
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+        0, 0,
+        0, canvas.height,
+        canvas.width, canvas.height,
+        0, 0,
+        canvas.width, canvas.height,
+        canvas.width, 0]), gl.STATIC_DRAW);
 
-    // Link the two shaders into a program
-    var program = createProgram(gl, vertexShader, fragmentShader);
-
-    // look up where the vertex data needs to go.
-    var positionAttributeLocation = gl.getAttribLocation(program, "a_position");
-
-    // Create a buffer and put three 2d clip space points in it
-    var positionBuffer = gl.createBuffer();
-
-    // Bind it to ARRAY_BUFFER (think of it as ARRAY_BUFFER = positionBuffer)
-    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-
-    var positions = [
-        -1, -1,
-        -1, 1,
-        1, -1,
-        -1, 1,
-        1, 1,
-        1, -1
-    ];
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
-
-    // code above this line is initialization code.
-    // code below this line is rendering code.
-
-    resizeCanvasToDisplaySize(gl.canvas);
-
-    // Tell WebGL how to convert from clip space to pixels
+    gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 
-    // Clear the canvas
-    gl.clearColor(0, 0, 0, 0);
-    gl.clear(gl.COLOR_BUFFER_BIT);
-
-    // Tell it to use our program (pair of shaders)
-    gl.useProgram(program);
-
-    // Turn on the attribute
-    gl.enableVertexAttribArray(positionAttributeLocation);
-
-    // Bind the position buffer.
-    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-
-    // Tell the attribute how to get data out of positionBuffer (ARRAY_BUFFER)
-    var size = 2; // 2 components per iteration
-    var type = gl.FLOAT; // the data is 32bit floats
-    var normalize = false; // don't normalize the data
-    var stride = 0; // 0 = move forward size * sizeof(type) each iteration to get the next position
-    var offset = 0; // start at the beginning of the buffer
-    gl.vertexAttribPointer(
-        positionAttributeLocation, size, type, normalize, stride, offset);
-
     // draw
-    var primitiveType = gl.TRIANGLES;
-    var offset = 0;
-    var count = 6;
-    gl.drawArrays(primitiveType, offset, count);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
 }
 
-main();
+// resize the canvas to fill browser window dynamically
+window.addEventListener('resize', resizeCanvas, false);
+
+console.log(__dirname);
