@@ -18,7 +18,7 @@
     </head>
     <body>
         <canvas id="canvas"></canvas>
-        <script id="vertex-shader-2d" type="notjs">
+        <script  id="vertex-shader-2d" type="x-shader/x-vertex">
         attribute vec2 a_position;
         attribute vec2 a_texCoord;
 
@@ -57,6 +57,6 @@
            gl_FragColor = texture2D(u_image, v_texCoord);
         }
         </script>
-        <script src="engine-test.js"></script>
+        <script src="webgl-texture-example.js"></script>
     </body>
 </html>

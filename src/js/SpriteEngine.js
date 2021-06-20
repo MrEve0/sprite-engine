@@ -56,19 +56,12 @@ module.exports = class SpriteEngine {
         var success = gl.getProgramParameter ( program, gl.LINK_STATUS );
         if ( success ) {
             this.program = program;
+            this.gl.useProgram ( this.program );
             return program;
         }
 
         console.error ( gl.getProgramInfoLog ( program ) );
         gl.deleteProgram ( program );
-    }
-
-    useProgram () {
-        if ( !this.program ) {
-            throw new TypeError ( 'no program loaded' );
-        }
-
-        this.gl.useProgram ( this.program );
     }
 
     /* {
@@ -101,16 +94,16 @@ module.exports = class SpriteEngine {
             // look up where the vertex data needs to go.
             console.log ( this.program );
 
-            var location = gl.getAttribLocation ( this.program, name );
+            var location = gl.getAttribLocation ( this.program, name ),
+                buffer = attrs [ name ].buffer = gl.createBuffer ();
 
-            // Create a buffer and put three 2d clip space points in it
-            var buffer = gl.createBuffer ();
-
-            attrs [ name ].buffer = buffer;
-
-            // Bind it to ARRAY_BUFFER (think of it as ARRAY_BUFFER = positionBuffer)
+            // Turn on the position attribute
+            gl.enableVertexAttribArray ( location );
+            // Bind the position buffer.
             gl.bindBuffer ( gl.ARRAY_BUFFER, buffer );
             gl.bufferData ( gl.ARRAY_BUFFER, new Float32Array ( val.data ), gl.STATIC_DRAW );
+            gl.vertexAttribPointer ( val.location, val.size, val.type, val.normalize, val.stride, val.offset );
+
         }
     }
 
@@ -118,10 +111,10 @@ module.exports = class SpriteEngine {
         let gl = this.gl;
         for ( let [ name, val ] of Object.entries ( unifs ) ) {
             // lookup uniforms
-            var location = gl.getUniformLocation ( this.program, name );
+            var location = unifs [ name ].location = gl.getUniformLocation ( this.program, name );
 
             // set the resolution
-            gl.uniform2f ( location, gl.canvas.width, gl.canvas.height);
+            gl [ 'uniform' + val.type ] ( location, ...val.data );
         }
     }
 

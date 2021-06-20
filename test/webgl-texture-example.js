@@ -1,14 +1,77 @@
 "use strict";
 
 function main() {
-  var image = new Image();
-  image.src = "https://webglfundamentals.org/webgl/resources/leaves.jpg";  // MUST BE SAME DOMAIN!!!
-  image.onload = function() {
-    render(image);
-  };
+    let texture = document.createElement ( 'canvas' ),
+        tctx = texture.getContext ( '2d' );
+
+    texture.width = 208;
+    texture.height = 16;
+    tctx.font = "monospace 16px";
+    tctx.textBaseLine = "top";
+    tctx.fillStyle = "black";
+
+    for ( let i = 0; i < 26; i = i + 1 ) {
+        tctx.fillText ( String.fromCharCode ( 65 + i ), i * 8, 16 );
+    }
+
+    render ( texture );
 }
 
-function render(image) {
+function createShader ( gl, type, source ) {
+    var shader = gl.createShader ( type );
+    gl.shaderSource ( shader, source );
+    gl.compileShader ( shader );
+    var success = gl.getShaderParameter ( shader, gl.COMPILE_STATUS );
+
+    if ( success ) {
+        return shader;
+    }
+
+    console.log ( gl.getShaderInfoLog ( shader ) );
+    gl.deleteShader ( shader );
+}
+
+function loadProgram ( gl, vertText = document.getElementById ( 'vertex-shader-2d' ).text, fragText = document.getElementById ( 'fragment-shader-2d' ).text ) {
+    var program = gl.createProgram (),
+        vertexShader = createShader ( gl, gl.VERTEX_SHADER, vertText ),
+        fragmentShader = createShader ( gl, gl.FRAGMENT_SHADER, fragText );
+
+    gl.attachShader ( program, vertexShader );
+    gl.attachShader ( program, fragmentShader );
+    gl.linkProgram ( program );
+
+    var success = gl.getProgramParameter ( program, gl.LINK_STATUS );
+    if ( success ) {
+        return program;
+    }
+
+    console.error ( gl.getProgramInfoLog ( program ) );
+    gl.deleteProgram ( program );
+}
+
+function initCanvas ( gl, canvas ) {
+    gl.viewport ( 0, 0, canvas.width, canvas.height );
+    // Clear the canvas
+    gl.clearColor ( 0, 0, 0, 0 );
+    gl.clear ( gl.COLOR_BUFFER_BIT );
+}
+
+function loadTexture ( gl, image ) {
+    // Create a texture.
+    var texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+
+    // Set the parameters so we can render any size image.
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+
+    // Upload the image into the texture.
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+}
+
+function render ( image ) {
   // Get A WebGL context
   /** @type {HTMLCanvasElement} */
   var canvas = document.querySelector("#canvas");
@@ -18,7 +81,7 @@ function render(image) {
   }
 
   // setup GLSL program
-  var program = webglUtils.createProgramFromScripts(gl, ["vertex-shader-2d", "fragment-shader-2d"]);
+  var program = loadProgram ( gl );
 
   // look up where the vertex data needs to go.
   var positionLocation = gl.getAttribLocation(program, "a_position");
@@ -44,30 +107,12 @@ function render(image) {
       1.0,  1.0,
   ]), gl.STATIC_DRAW);
 
-  // Create a texture.
-  var texture = gl.createTexture();
-  gl.bindTexture(gl.TEXTURE_2D, texture);
-
-  // Set the parameters so we can render any size image.
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-
-  // Upload the image into the texture.
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+  loadTexture ( gl, image );
 
   // lookup uniforms
   var resolutionLocation = gl.getUniformLocation(program, "u_resolution");
 
-  webglUtils.resizeCanvasToDisplaySize(gl.canvas);
-
-  // Tell WebGL how to convert from clip space to pixels
-  gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-
-  // Clear the canvas
-  gl.clearColor(0, 0, 0, 0);
-  gl.clear(gl.COLOR_BUFFER_BIT);
+  initCanvas ( gl, canvas );
 
   // Tell it to use our program (pair of shaders)
   gl.useProgram(program);
