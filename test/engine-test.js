@@ -1,82 +1,80 @@
 let SpriteEngine = require ( '../src/js/SpriteEngine.js' ),
-<<<<<<< HEAD
+
     canvas = document.getElementById ( 'canvas' ),
     engine = new SpriteEngine ( canvas ),
+    gl = engine.gl,
     attrs = {
         a_position : {
-            data : [ -1, -1, -1, 1, 1, -1, -1, 1, 1, 1, 1, -1 ],
+            data : null,
             size : 2,
-            type : engine.gl.FLOAT,
+            type : gl.FLOAT,
             normalize : false,
             stride : 0,
             offset : 0,
-            location: NaN,
+            location : NaN,
+            buffer : null
+        },
+        a_texCoord : {
+            data : [ 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0 ],
+            size : 2,
+            type : gl.FLOAT,
+            normalize : false,
+            stride : 0,
+            offset : 0,
+            location : NaN,
             buffer : null
         }
-    };
-=======
->>>>>>> upstream/main
-
-
-canvas = document.getElementById ( 'canvas' ),
-engine = new SpriteEngine ( canvas ),
-gl = engine.gl,
-attrs = {
-    a_position : {
-        data : [ 0, 0, canvas.width, 0, canvas.height, 0, canvas.height, canvas.width, 0, canvas.width, canvas.height ],
-        size : 2,
-        type : engine.gl.FLOAT,
-        normalize : false,
-        stride : 0,
-        offset : 0,
-        buffer : null
     },
-    a_texCoord : {
-        data : [ 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0, ],
-        size : 2,
-        type : engine.gl.FLOAT,
-        normalize : false,
-        stride : 0,
-        offset : 0,
-        buffer : null
-    }
-},
-unifs = {
-    u_resolution : {
-        type : '2f',
-        data : [ canvas.width, canvas.height ]
-    }
-},
-tex = {
-    target : gl.TEXTURE_2D,
-    wrapS : gl.CLAMP_TO_EDGE,
-    wrapT : gl.CLAMP_TO_EDGE,
-    minF : gl.NEAREST,
-    magF : gl.NEAREST,
-    fmt : gl.RGBA,
-    type : gl.UNSIGNED_BYTE,
-    image : null
-};
+    unifs = {
+        u_resolution : {
+            type : '2f',
+            data : null,
+            location : NaN
+        }
+    },
+    tex = {
+        target : gl.TEXTURE_2D,
+        wrapS : gl.CLAMP_TO_EDGE,
+        wrapT : gl.CLAMP_TO_EDGE,
+        minF : gl.NEAREST,
+        magF : gl.NEAREST,
+        fmt : gl.RGBA,
+        type : gl.UNSIGNED_BYTE,
+        image : null
+    };
 
-<<<<<<< HEAD
-//engine.setUniforms ();
-=======
-function loadImage () {
-    let image = new Image ();
-    image.onload = function () {
-        tex.image = image;
-        engine.bufferTexture ( tex );
-        engine.initCanvas ();
-        engine.draw ();
+function getTileTexture () {
+
+    let texture = document.createElement ( 'canvas' ),
+        tctx = texture.getContext ( '2d' );
+
+    texture.width = 208;
+    texture.height = 16;
+    tctx.font = "monospace 16px";
+    tctx.textBaseLine = "top";
+    tctx.fillStyle = "black";
+
+    for ( let i = 0; i < 26; i = i + 1 ) {
+        tctx.fillText ( String.fromCharCode ( 65 + i ), i * 8, 16 );
     }
-    image.src = 'https://webglfundamentals.org/webgl/resources/leaves.jpg';
+
+    return texture;
 }
+
+engine.initCanvas ();
+
+let image = tex.image = getTileTexture ();
+
+attrs.a_position.data = [ 0, 0, image.width, 0, 0, image.height, 0, image.height, image.width, 0, image.width, image.height ];
+
+unifs.u_resolution.data = [ canvas.width, canvas.height ];
 
 engine.loadProgram ();
 
 engine.setAttributes ( attrs );
->>>>>>> upstream/main
 
 engine.setUniforms ( unifs );
 
-loadImage ();
+engine.bufferTexture ( tex );
+
+engine.draw ();

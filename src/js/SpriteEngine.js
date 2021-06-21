@@ -22,7 +22,6 @@ module.exports = class SpriteEngine {
 
     constructor ( canvas ) {
         this.gl = canvas.getContext ( 'webgl' );
-        this.canvas = canvas;
     }
 
     createShader ( type, source ) {
@@ -47,11 +46,6 @@ module.exports = class SpriteEngine {
             vertexShader = this.createShader ( gl.VERTEX_SHADER, vertText ),
             fragmentShader = this.createShader ( gl.FRAGMENT_SHADER, fragText );
 
-<<<<<<< HEAD
-=======
-        console.log ( vertText, '\n', fragText );
-
->>>>>>> upstream/main
         gl.attachShader ( program, vertexShader );
         gl.attachShader ( program, fragmentShader );
         gl.linkProgram ( program );
@@ -59,11 +53,7 @@ module.exports = class SpriteEngine {
         var success = gl.getProgramParameter ( program, gl.LINK_STATUS );
         if ( success ) {
             this.program = program;
-<<<<<<< HEAD
             gl.useProgram ( program );
-=======
-            this.gl.useProgram ( this.program );
->>>>>>> upstream/main
             return program;
         }
 
@@ -98,7 +88,6 @@ module.exports = class SpriteEngine {
         let gl = this.gl;
         // [ [ ], [ attributeName, val ] ]
         for ( let [ name, val ] of Object.entries ( attrs ) ) {
-<<<<<<< HEAD
             // get the binding point, create a buffer
             var location = attrs [ name ].location = gl.getAttribLocation ( this.program, name ),
                 buffer = attrs [ name ].buffer = gl.createBuffer ();
@@ -108,21 +97,6 @@ module.exports = class SpriteEngine {
             gl.bindBuffer ( gl.ARRAY_BUFFER, buffer );
             gl.bufferData ( gl.ARRAY_BUFFER, new Float32Array ( val.data ), gl.STATIC_DRAW );
             gl.vertexAttribPointer ( location, val.size, val.type, val.normalize, val.stride, val.offset );
-=======
-            // look up where the vertex data needs to go.
-            console.log ( this.program );
-
-            var location = gl.getAttribLocation ( this.program, name ),
-                buffer = attrs [ name ].buffer = gl.createBuffer ();
-
-            // Turn on the position attribute
-            gl.enableVertexAttribArray ( location );
-            // Bind the position buffer.
-            gl.bindBuffer ( gl.ARRAY_BUFFER, buffer );
-            gl.bufferData ( gl.ARRAY_BUFFER, new Float32Array ( val.data ), gl.STATIC_DRAW );
-            gl.vertexAttribPointer ( val.location, val.size, val.type, val.normalize, val.stride, val.offset );
-
->>>>>>> upstream/main
         }
     }
 
@@ -134,8 +108,6 @@ module.exports = class SpriteEngine {
 
             // set the resolution
             gl [ 'uniform' + val.type ] ( location, ...val.data );
-<<<<<<< HEAD
-=======
         }
     }
 
@@ -148,14 +120,20 @@ module.exports = class SpriteEngine {
             // Bind the position buffer.
             gl.bindBuffer ( gl.ARRAY_BUFFER, val.buffer );
             gl.vertexAttribPointer ( val.location, val.size, val.type, val.normalize, val.stride, val.offset );
->>>>>>> upstream/main
         }
     }
 
-    initCanvas () {
-        let gl = this.gl;
+    setViewport ( x0, y0, x1, y1 ) {
+        
+    }
 
-        gl.viewport ( 0, 0, this.canvas.width, this.canvas.height );
+    initCanvas () {
+        let gl = this.gl,
+            canvas = gl.canvas;
+
+        canvas.width = canvas.clientWidth;
+        canvas.height = canvas.clientHeight;
+        gl.viewport ( 0, 0, canvas.width, canvas.height );
         // Clear the canvas
         gl.clearColor ( 0, 0, 0, 0 );
         gl.clear ( gl.COLOR_BUFFER_BIT );
