@@ -1,27 +1,51 @@
 module.exports = class SpriteEngine {
 
-    static VERTEX_SHADER = `// an attribute will receive data from a buffer
-    attribute vec4 a_position;
-
-    // all shaders have a main function
-    void main() {
-        // gl_Position is a special variable a vertex shader
-        // is responsible for setting
-        gl_Position = a_position;
-    }`;
-
-    static FRAGMENT_SHADER = `// fragment shaders don't have a default precision so we need
-    // to pick one. mediump is a good default
-    precision mediump float;
-
-    void main() {
-        // gl_FragColor is a special variable a fragment shader
-        // is responsible for setting
-        gl_FragColor = vec4(0, 1, 0, 1);
-    }`;
-
-    constructor ( canvas ) {
+    constructor ( canvas, outputSize = { width: 640, height: 360 } ) {
         this.gl = canvas.getContext ( 'webgl' );
+        this.dimensions = outputSize;
+        this.output = null;
+        this.pixelSize = 1;
+        this.resize = true;
+
+        canvas.addEventListener ( 'resize', () => {
+            this.resize = true;
+        } );
+    }
+
+    // x, y is from bottom left corner
+    setViewport () {
+        if ( this.resize ) {
+            let gl = this.gl, canvas = gl.canvas,
+                width = canvas.width = canvas.clientWidth,
+                height = canvas.height = canvas.clientHeight,
+                dim = this.dimensions,
+                pixelSize = this.pixelSize = Math.min ( Math.floor ( width / dim.width ), Math.floor ( height / dim.height ) ),
+                viewportWidth = pixelSize * dim.width,
+                viewportHeight = pixelSize * dim.height,
+                x0 = Math.floor ( 0.5 * ( width - viewportWidth ) ),
+                y0 = Math.floor ( 0.5 * ( height - viewportHeight ) ),
+                x1 = x0 + viewportWidth,
+                y1 = y0 + viewportHeight;
+
+            this.output = [ x0, y0, x1, y0, y1, x0, y1, x0, x1, y0, x1, y1 ];
+
+            // limits viewport to dim.width x dim.height scaled by pixelSize, and centered
+            gl.viewport ( x, y, x + viewportWidth, y + viewportHeight );
+
+            this.resize = false;
+        }
+    }
+
+    initCanvas () {
+        let gl = this.gl,
+            canvas = gl.canvas;
+
+        canvas.width = canvas.clientWidth;
+        canvas.height = canvas.clientHeight;
+        gl.viewport ( 0, 0, canvas.width, canvas.height );
+        // Clear the canvas
+        gl.clearColor ( 0, 0, 0, 0 );
+        gl.clear ( gl.COLOR_BUFFER_BIT );
     }
 
     createShader ( type, source ) {
@@ -121,18 +145,6 @@ module.exports = class SpriteEngine {
             gl.bindBuffer ( gl.ARRAY_BUFFER, val.buffer );
             gl.vertexAttribPointer ( val.location, val.size, val.type, val.normalize, val.stride, val.offset );
         }
-    }
-
-    initCanvas () {
-        let gl = this.gl,
-            canvas = gl.canvas;
-
-        canvas.width = canvas.clientWidth;
-        canvas.height = canvas.clientHeight;
-        gl.viewport ( 0, 0, canvas.width, canvas.height );
-        // Clear the canvas
-        gl.clearColor ( 0, 0, 0, 0 );
-        gl.clear ( gl.COLOR_BUFFER_BIT );
     }
 
     draw () {
