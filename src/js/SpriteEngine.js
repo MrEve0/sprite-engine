@@ -123,10 +123,6 @@ module.exports = class SpriteEngine {
         }
     }
 
-    setViewport ( x0, y0, x1, y1 ) {
-        
-    }
-
     initCanvas () {
         let gl = this.gl,
             canvas = gl.canvas;

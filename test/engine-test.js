@@ -48,14 +48,18 @@ function getTileTexture () {
     let texture = document.createElement ( 'canvas' ),
         tctx = texture.getContext ( '2d' );
 
-    texture.width = 208;
+    texture.width = 416;
     texture.height = 16;
-    tctx.font = "monospace 16px";
-    tctx.textBaseLine = "top";
-    tctx.fillStyle = "black";
+    tctx.font = '24px/1 monospace';
+    tctx.textBaseLine = 'top';
+
+    tctx.fillStyle = 'rgb(0,255,0)';
+    tctx.fillRect ( 0, 0, texture.width, texture.height );
+
+    tctx.fillStyle = 'black';
 
     for ( let i = 0; i < 26; i = i + 1 ) {
-        tctx.fillText ( String.fromCharCode ( 65 + i ), i * 8, 16 );
+        tctx.fillText ( String.fromCharCode ( 65 + i ), 1 + i * 16, 15 );
     }
 
     return texture;
