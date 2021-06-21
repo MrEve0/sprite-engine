@@ -24,7 +24,8 @@ function buildUI () {
         }
     );
 
-    win.loadFile ( path.join ( __dirname, 'test.html' ) );
+    console.log ( process.argv );
+    win.loadFile ( path.join ( __dirname, process.argv [ 2 ] || 'test.html' ) );
 }
 
 app.on ('ready', buildUI );

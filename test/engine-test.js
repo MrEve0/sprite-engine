@@ -8,17 +8,15 @@ let SpriteEngine = require ( '../src/js/SpriteEngine.js' ),
             type : engine.gl.FLOAT,
             normalize : false,
             stride : 0,
-            offset : 0
+            offset : 0,
+            location: NaN,
+            buffer : null
         }
     };
 
 engine.loadProgram ();
 
 engine.setAttributes ( attrs );
-
-engine.useProgram ();
-
-engine.enableAttributes ( attrs );
 
 //engine.setUniforms ();
 

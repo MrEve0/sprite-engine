@@ -25,7 +25,7 @@ module.exports = class SpriteEngine {
         this.canvas = canvas;
     }
 
-    creatShader ( type, source ) {
+    createShader ( type, source ) {
         var gl = this.gl, shader = gl.createShader ( type );
         gl.shaderSource ( shader, source );
         gl.compileShader ( shader );
@@ -41,10 +41,12 @@ module.exports = class SpriteEngine {
         gl.deleteShader ( shader );
     }
 
-    loadProgram ( vertText, fragText ) {
-        var gl = this.gl, program = gl.createProgram (),
-            vertexShader = gl.createShader ( gl.VERTEX_SHADER, vertText || SpriteEngine.VERTEX_SHADER ),
-            fragmentShader = gl.createShader ( gl.FRAGMENT_SHADER, fragText || SpriteEngine.FRAGMENT_SHADER );
+    loadProgram ( vertText = document.getElementById ( 'vertex-shader-2d' ).text, fragText = document.getElementById ( 'fragment-shader-2d' ).text ) {
+        var gl = this.gl,
+            program = gl.createProgram (),
+            vertexShader = this.createShader ( gl.VERTEX_SHADER, vertText ),
+            fragmentShader = this.createShader ( gl.FRAGMENT_SHADER, fragText );
+
         gl.attachShader ( program, vertexShader );
         gl.attachShader ( program, fragmentShader );
         gl.linkProgram ( program );
@@ -52,19 +54,12 @@ module.exports = class SpriteEngine {
         var success = gl.getProgramParameter ( program, gl.LINK_STATUS );
         if ( success ) {
             this.program = program;
+            gl.useProgram ( program );
             return program;
         }
 
-        console.log ( gl.getProgramInfoLog ( program ) );
+        console.error ( gl.getProgramInfoLog ( program ) );
         gl.deleteProgram ( program );
-    }
-
-    useProgram () {
-        if ( !this.program ) {
-            throw new TypeError ( 'no program loaded' );
-        }
-
-        this.gl.useProgram ( this.program );
     }
 
     /* {
@@ -72,9 +67,9 @@ module.exports = class SpriteEngine {
         wrapS: gl...
 
     } */
-    bufferTexture ( { target, wrapS, wrapT, minF, magF, fmt, type, canvas } ) {
+    bufferTexture ( { target, wrapS, wrapT, minF, magF, fmt, type, image } ) {
         // Create a texture.
-        var texture = gl.createTexture ();
+        let texture = gl.createTexture ();
         gl.bindTexture ( target, texture );
 
         // Set the parameters so we can render any size image.
@@ -84,7 +79,7 @@ module.exports = class SpriteEngine {
         gl.texParameteri ( target, gl.TEXTURE_MAG_FILTER, magF );
 
         // Upload the image into the texture.
-        gl.texImage2D ( target, 0, fmt, fmt, type, canvas );
+        gl.texImage2D ( target, 0, fmt, fmt, type, image );
     }
 
     /* object<attrs> {
@@ -94,15 +89,15 @@ module.exports = class SpriteEngine {
         let gl = this.gl;
         // [ [ ], [ attributeName, val ] ]
         for ( let [ name, val ] of Object.entries ( attrs ) ) {
-            // look up where the vertex data needs to go.
-            var location = gl.getAttribLocation ( this.program, name );
+            // get the binding point, create a buffer
+            var location = attrs [ name ].location = gl.getAttribLocation ( this.program, name ),
+                buffer = attrs [ name ].buffer = gl.createBuffer ();
 
-            // Create a buffer and put three 2d clip space points in it
-            var buffer = gl.createBuffer ();
-
-            // Bind it to ARRAY_BUFFER (think of it as ARRAY_BUFFER = positionBuffer)
+            // enable the attirbute, bind the buffer, supply the data, convey the data format
+            gl.enableVertexAttribArray ( location );
             gl.bindBuffer ( gl.ARRAY_BUFFER, buffer );
             gl.bufferData ( gl.ARRAY_BUFFER, new Float32Array ( val.data ), gl.STATIC_DRAW );
+            gl.vertexAttribPointer ( location, val.size, val.type, val.normalize, val.stride, val.offset );
         }
     }
 
@@ -110,20 +105,10 @@ module.exports = class SpriteEngine {
         let gl = this.gl;
         for ( let [ name, val ] of Object.entries ( unifs ) ) {
             // lookup uniforms
-            var location = gl.getUniformLocation ( this.program, name );
+            var location = unifs [ name ].location = gl.getUniformLocation ( this.program, name );
 
             // set the resolution
-            gl.uniform2f ( location, gl.canvas.width, gl.canvas.height);
-        }
-    }
-
-    enableAttributes ( attrs ) {
-        for ( let [ name, val ] of Object.entries ( attrs ) ) {
-            // Turn on the position attribute
-            gl.enableVertexAttribArray ( val.location );
-            // Bind the position buffer.
-            gl.bindBuffer ( gl.ARRAY_BUFFER, val.buffer );
-            gl.vertexAttribPointer ( val.location, val.size, val.type, val.normalize, val.stride, val.offset );
+            gl [ 'uniform' + val.type ] ( location, ...val.data );
         }
     }
 
@@ -137,10 +122,12 @@ module.exports = class SpriteEngine {
     }
 
     draw () {
-        var primitiveType = gl.TRIANGLES;
-        var offset = 0;
-        var count = 6;
-        this.gl.drawArrays(primitiveType, offset, count);
+        let gl = this.gl,
+            primitiveType = gl.TRIANGLES,
+            offset = 0,
+            count = 6;
+
+        gl.drawArrays ( primitiveType, offset, count );
     }
 
 }
