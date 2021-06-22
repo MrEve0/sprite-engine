@@ -1,0 +1,22 @@
+<style>
+    :host {
+        display: block;
+    }
+    #content, #icon, #name {
+        margin: 0.0625em;
+    }
+    slot {
+        display: none;
+    }
+    #content.expand {
+        transform: translate(-50%,-50%) rotate(-.25turn) translate(50%,50%)
+    }
+    #content.expand ~ slot {
+        display: block;
+        padding-left: 2em;
+    }
+</style>
+<span id="content">˃</span>
+<span id="icon">🖿</span>
+<span id="name"></span>
+<slot></slot>
