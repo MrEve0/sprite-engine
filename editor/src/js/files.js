@@ -846,7 +846,7 @@ class FileOptionsMenu extends HTMLElement {
             }
         }
 
-        window.addEventListener ( 'keydown', this.#keyHandler );
+        // window.addEventListener ( 'keydown', this.#keyHandler );
         window.addEventListener ( 'pointerdown', this.#focusHandler );
     }
 
