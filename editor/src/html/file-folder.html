@@ -1,0 +1,37 @@
+<style>
+    :host {
+        display: block;
+    }
+    :host(:focus) {
+        outline: none;
+    }
+    :host(.selected) #wrapper {
+        background: #efefef;
+    }
+    :host([expanded]) #content {
+        display: inline-block;
+        transform-origin: 50% 50%;
+        transform: rotate(0.25turn);
+    }
+    :host([expanded]) #slot {
+        display: block;
+    }
+    #content, #icon, #name {
+        margin: 0.0625em;
+    }
+    #slot {
+        display: none;
+    }
+    ::slotted(*) {
+        display: none;
+    }
+    ::slotted(file-folder), ::slotted(file-node) {
+        display: block;
+    }
+</style>
+<div id="wrapper">
+    <span id="content">❯</span>
+    <span id="icon">🖿</span>
+    <span id="name"></span>
+</div>
+<slot id="slot"></slot>

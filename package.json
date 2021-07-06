@@ -1,29 +1,31 @@
 {
-  "name": "spreng",
-  "version": "0.1.0",
-  "description": "javascript 16x16 tile based game engine",
-  "main": "main.js",
-  "scripts": {
-    "start": "electron main.js",
-    "test": "electron ./test/test.js"
-  },
-  "keywords": [
-    "game",
-    "dev",
-    "engine",
-    "tile",
-    "16x16",
-    "sprite",
-    "256color",
-    "tilemap"
-  ],
-  "author": [
-    "Eric Balingit",
-    "MrEve0"
-  ],
-  "license": "CC0-1.0",
-  "dependencies": {
-    "electron": ">=11.2.3",
-    "electron-reload": ">=1.5.0"
-  }
+    "name": "sprite-engine",
+    "version": "0.1.0",
+    "description": "webgl 16x16 tile based game engine",
+    "main": "main.js",
+    "scripts": {
+        "start": "electron main.js",
+        "test": "electron ./test/test.js",
+        "editor": "electron ./editor/editor.js",
+        "editor-test": "electron ./editor/test/editor-test.js"
+    },
+    "keywords": [
+        "game",
+        "dev",
+        "engine",
+        "tile",
+        "16x16",
+        "sprite",
+        "256color",
+        "tilemap"
+    ],
+    "author": [
+        "Eric Balingit",
+        "MrEve0"
+    ],
+    "license": "CC0-1.0",
+    "dependencies": {
+        "electron": ">=11.2.3",
+        "electron-reload": ">=1.5.0"
+    }
 }

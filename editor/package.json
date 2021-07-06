@@ -1,0 +1,30 @@
+{
+    "name": "sprite-engine-editor",
+    "version": "0.1.0",
+    "description": "resource editor for https://github.com/MrEve0/sprite-engine",
+    "main": "editor.js",
+    "scripts": {
+        "start": "electron editor.js",
+        "test": "electron ./test/editor-test.js"
+    },
+    "keywords": [
+        "game",
+        "dev",
+        "map",
+        "resource",
+        "editor",
+        "tile",
+        "16x16",
+        "sprite",
+        "256color",
+        "tilemap"
+    ],
+    "author": [
+        "Eric Balingit"
+    ],
+    "license": "CC0-1.0",
+    "dependencies": {
+        "mime-types": ">=2.1.31",
+        "trash": ">=7.2.0"
+    }
+}
