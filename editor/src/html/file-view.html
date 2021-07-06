@@ -1,10 +1,24 @@
 <style>
     :host {
-        display: flex;
-        flex-direction: column;
+        display: block;
     }
     slot {
         display: block;
     }
+    ::slotted(*) {
+        display: none;
+    }
+    ::slotted(file-folder), ::slotted(file-node) {
+        display: block;
+    }
+    #menu-wrapper {
+        position: relative;
+    }
+    #menu {
+        position: absolute;
+    }
 </style>
-<slot></slot>
+<div id="menu-wrapper">
+    <slot id="slot"></slot>
+    <file-options id="menu">
+</file-options></div>

@@ -3,8 +3,22 @@
     <head>
         <meta charset="utf-8">
         <title>Sprite Engine Map Editor</title>
+        <script src="../src/js/files.js"></script>
     </head>
     <body>
-    <script src="js/editor-test.js"></script>
+        <file-view id="file-view" path="C:\Users\Eric Balingit\Dropbox\apps\projects\sprite-engine\editor\test\mung-files"></file-view>
+        <!--
+            <file-folder name="test">
+                <file-node name="some.txt"></file-node>
+                <file-node name="test.jpg"></file-node>
+                <file-folder name="js"></file-folder>
+                <file-folder name="html"></file-folder>
+            </file-folder>
+            <file-node name="an.mp4"></file-node>
+            <file-node name="my.mp3"></file-node>
+        -->
+        <script>
+            document.getElementById ( 'file-view' ).autoPopulate ();
+        </script>
     </body>
 </html>
