@@ -3,11 +3,17 @@
         display: block;
         padding-left: 1em;
     }
+    :host(:focus) {
+        outline: none;
+    }
     :host(.selected) {
         background: #efefef;
     }
     #icon, #name {
         margin: 0.0625em;
+    }
+    #name:focus {
+        outline: none;
     }
 </style>
 <span id="icon"></span>

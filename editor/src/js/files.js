@@ -25,14 +25,11 @@ const   fs = require ( 'fs' ),
                 root = basename.slice ( 0, basename.lastIndexOf ( ext ) ),
                 sibling = null,
                 indexed = root.match ( /\((\d+)\)$/ ),
-                index = indexed ? Number ( index [ 1 ] ) + 1 : 1;
+                index = indexed ? Number ( indexed [ 1 ] ) + 1 : 1;
 
-            while ( sibling = parent.querySelector ( `:scope > [name^=${root}]` ) ) {
-                if ( indexed ) {
-                    root = root.replace ( /\(\d+\)$/, `(${index})` );
-                } else {
-                    root += `(${index})`;
-                }
+            while ( sibling = parent.querySelector ( `:scope > [name="${root}"]` ) ) {
+                root = root.replace ( /(\(\d+\))?$/, `(${index})` );
+                index += 1;
             }
 
             return path.join ( dirname, root + ext );
@@ -83,14 +80,9 @@ class FileView extends HTMLElement {
         }
 
         this.addEventListener ( 'file-option', event => {
-            let options = this.#userInteractions,
-                interaction;
+            let options = this.#userInteractions;
             if ( event.detail in options ) {
-                interaction = options [ event.detail ];
-                for ( let el of this.#selected ) {
-                    interaction ( el, event );
-                }
-                this.#menu.hide ();
+                options [ event.detail ] ();
             }
         } );
 
@@ -106,14 +98,11 @@ class FileView extends HTMLElement {
 
         this.addEventListener ( 'click', event => {
             const selectSiblingsFrom = ( first, last ) => {
-                console.log ( 'selecting siblings...' );
                 while ( first ) {
-                    console.log ( first.name );
                     this.#selected.add ( first );
                     first.classList.add ( 'selected' );
                     if ( first.tagName === 'FILE-FOLDER' ) {
                         if ( first.firstElementChild ) {
-                            console.log ( 'selecting children...' );
                             selectSiblingsFrom ( first.firstElementChild, first.lastElementChild );
                         }
                     }
@@ -142,8 +131,6 @@ class FileView extends HTMLElement {
                                 first = event.target;
                                 last = sel;
                             }
-
-                            console.log ( first.name, '\n', last.name );
 
                             selectSiblingsFrom ( first, last );
                         }
@@ -203,7 +190,7 @@ class FileView extends HTMLElement {
                             return a.tagName < b.tagName ? -1 : 1;
                         }
                     } );
-                    this.append ( ...children.map ( child => { child.path = this.path; return child; } ) );
+                    this.append ( ...children );
                     setTimeout ( bind, 0 );
                 },
                 onslotchange = event => {
@@ -258,27 +245,25 @@ class FileView extends HTMLElement {
 
     get #userInteractions() {
         return {
-            'new-file': target => {
+            'new-file': () => {
+                let target = this.#selected.length ? this.#selected [ this.#selected.length - 1 ] : this;
+                if ( target.tagName === 'FILE-NODE' ) {
+                    target = target.parentElement;
+                }
                 if ( target === this || this.contains ( target ) ) {
-                    target = target.tagName === 'FILE-NODE' ? target.parentElement : target;
-                    let filePath = path.join ( target.path, target.name ),
-                        fileName = 'new file',
-                        fullPath = autoIndex ( target, path.join ( filePath, fileName ) );
+                    let filePath = target === this ? this.path : path.join ( target.path, target.name ),
+                        fullPath = autoIndex ( target, path.join ( filePath, 'newFile' ) ),
+                        fileName = path.basename ( fullPath );
                     fs.writeFile ( fullPath, '', 'utf8', err => {
 
                         if ( err ) {
                             throw err;
                         }
 
-                        let file = document.createElement ( 'file-node' ),
-                            placement = target.querySelector ( 'file-folder:last-of-type' );
+                        let file = document.createElement ( 'file-node' );
                         file.name = fileName;
                         file.path = filePath;
-                        if ( !placement ) {
-                            target.prepend ( file );
-                        } else {
-                            target.insertBefore ( file, placement.nextSibling );
-                        }
+                        target.append ( file );
 
                         setTimeout ( () => {
                             file.editName ();
@@ -286,7 +271,7 @@ class FileView extends HTMLElement {
                     } );
                 }
             },
-            'new-folder': target => {
+            'new-folder': () => {
                 if ( target === this || this.contains ( target ) ) {
                     target = target.tagName === 'FILE-NODE' ? target.parentElement : target;
                     let folderPath = path.join ( target.path, target.name ),
@@ -309,12 +294,12 @@ class FileView extends HTMLElement {
                     } );
                 }
             },
-            'rename': target => {
+            'rename': () => {
                 if ( this.contains ( target ) ) {
                     target.editName ();
                 }
             },
-            'duplicate': target => {
+            'duplicate': () => {
                 if ( this.contains ( target ) ) {
                     let path = target.path,
                         name = target.name,
@@ -336,7 +321,7 @@ class FileView extends HTMLElement {
                     } );
                 }
             },
-            'delete': target => {
+            'delete': () => {
                 if ( this.contains ( target ) ) {
                     trash ( path.join ( target.path, target.name ), { glob: false } ).then ( () => {
                         target.parentElement.removeChild ( target );
@@ -351,7 +336,7 @@ class FileView extends HTMLElement {
                     // } );
                 }
             },
-            'copy': target => {
+            'copy': () => {
                 if ( this.contains ( target ) ) {
                     if ( target.tagName === "FILE-NODE" ) {
                         fs.readFile ( path.join ( target.path, target.name ), ( err, data ) => {
@@ -377,11 +362,11 @@ class FileView extends HTMLElement {
                     }
                 }
             },
-            'cut': target => {
+            'cut': () => {
                 this.#userInteractions.copy ( target );
                 this.#userInteractions.delete ( target );
             },
-            'paste': target => {
+            'paste': () => {
                 const updatePath = ( parent, path ) => {
                         for ( let child of parent.children ) {
                             child.path = path.join ( path, child.path );
@@ -420,7 +405,7 @@ class FileView extends HTMLElement {
                     } );
                 }
             },
-            'copy-full-path': target => {
+            'copy-full-path': () => {
                 if ( this.contains ( target ) ) {
                     let type = 'text/plain';
 
@@ -611,7 +596,12 @@ class FileFolder extends HTMLElement {
         if ( !this.#updating ) {
             if ( name === 'name' ) {
                 newVal = path.basename ( newVal || '' );
-                if ( newVal !== path.basename ( oldVal || '' ) ) {
+                if ( !newVal ) {
+                    setTimeout ( () => {
+                        this.dispatchEvent ( new CustomEvent ( 'alert', { detail: { type: 'warning', message: 'invalid file name ""' }, bubbles: true, cancelable: true } ) );
+                        this.editName ();
+                    }, 0 );
+                } else if ( newVal !== path.basename ( oldVal || '' ) ) {
                     if ( this.dispatchEvent ( new CustomEvent ( 'rename', { detail: { oldName: oldVal, newName: newVal }, bubbles: true, cancelable: true } ) ) ) {
                         this.#name.textContent = newVal;
                     } else {
@@ -642,9 +632,10 @@ class FileFolder extends HTMLElement {
         }
         this.draggable = true;
         this.tabIndex = 0;
+        this.spellcheck = false;
 
         this.#updating = true;
-        this.path = path.normalize ( this.path || '' );
+        this.path = this.parentElement.tagName === 'FILE-FOLDER' ? path.join ( this.parentElement.path, this.parentElement.name ) : path.normalize ( this.path || '' );
         this.name = this.#name.textContent = path.basename ( this.name || '' );
         this.#updating = false;
 
@@ -726,11 +717,16 @@ class FileNode extends HTMLElement {
         if ( !this.#updating ) {
             if ( name === 'name' ) {
                 newVal = path.basename ( newVal || '' );
-                if ( newVal !== path.basename ( oldVal || '' ) ) {
+                if ( !newVal ) {
+                    setTimeout ( () => {
+                        this.dispatchEvent ( new CustomEvent ( 'alert', { detail: { type: 'warning', message: 'invalid name ""' }, bubbles: true, cancelable: true } ) );
+                        this.editName ();
+                    }, 0 );
+                } else if ( path.basename ( newVal ) !== this.name ) {
                     this.#name.textContent = newVal;
                     let type = mime.lookup ( newVal );
                     this.#icon.textContent = type ? icons [ type.split ( '/' ) [ 0 ] ] : icons.other;
-                    this.dispatchEvent ( new CustomEvent ( 'rename', { detail: { oldName: oldVal, newName: newVal }, bubbles: true } ) );
+                    this.dispatchEvent ( new CustomEvent ( 'rename', { detail: { oldName: this.name, newName: newVal }, bubbles: true } ) );
                 }
             } else if ( name === 'path' ) {
                 newVal = path.normalize ( newVal || '' );
@@ -750,8 +746,10 @@ class FileNode extends HTMLElement {
         }
         this.draggable = true;
         this.tabIndex = 0;
+        this.spellcheck = false;
 
         this.#updating = true;
+        this.path = this.parentElement.tagName === 'FILE-FOLDER' ? path.join ( this.parentElement.path, this.parentElement.name ) : path.normalize ( this.path || '' );
         this.name = this.#name.textContent = path.basename ( this.name || '' );
         this.#updating = false;
 
@@ -769,7 +767,9 @@ class FileNode extends HTMLElement {
             if ( event.key === 'Enter' ) {
                 this.#name.contentEditable = false;
                 this.removeEventListener ( 'keydown', handleSubmit );
-                this.name = this.#name.textContent.trim ();
+                setTimeout ( () => {
+                    this.name = this.#name.textContent.trim ();
+                }, 0 );
             } else if ( event.key === 'Escape' ) {
                 this.#name.contentEditable = false;
                 this.removeEventListener ( 'keydown', handleSubmit );
@@ -778,10 +778,18 @@ class FileNode extends HTMLElement {
         }
         this.addEventListener ( 'keydown', handleSubmit );
         this.#name.contentEditable = true;
-        this.#name.focus ();
-        let range = document.createRange ();
-        range.setStart ( this.#name, 0 );
-        range.setEnd ( this.#name, this.#name.textContent.replace ( /(\.[^.\\/]*)?$/, '').length );
+        setTimeout ( () => {
+            this.#name.focus ();
+            if ( this.#name.textContent ) {
+                let range = document.createRange (),
+                    node = this.#name.childNodes [ 0 ],
+                    selection = window.getSelection ();
+                range.setStart ( node, 0 );
+                range.setEnd ( node, node.textContent.replace ( /(\.[^.\\/]*)?$/, '').length );
+                selection.removeAllRanges ();
+                selection.addRange ( range );
+            }
+        }, 0 );
     }
 }
 
@@ -829,8 +837,8 @@ class FileOptionsMenu extends HTMLElement {
                     li.append ( span );
                     li.addEventListener ( 'click', event => {
                         let detail = li.dataset.value.toLowerCase ().split ( ' ' ).join ( '-' );
-                        // this.getRootNode ().host.dispatchEvent ( new CustomEvent ( 'file-option', { detail } ) );
-                        console.log ( 'file-option', event.detail );
+                        this.getRootNode ().host.dispatchEvent ( new CustomEvent ( 'file-option', { detail } ) );
+                        // console.log ( 'file-option', this.getRootNode ().host, detail );
                     } );
                 }
                 if ( li.dataset.hotkey ) {
@@ -847,12 +855,12 @@ class FileOptionsMenu extends HTMLElement {
         }
 
         // window.addEventListener ( 'keydown', this.#keyHandler );
-        window.addEventListener ( 'pointerdown', this.#focusHandler );
+        window.addEventListener ( 'click', this.#focusHandler );
     }
 
     disconnectedCallback () {
         window.removeEventListener ( 'keydown', this.#keyHandler );
-        window.removeEventListener ( 'pointerdown', this.#focusHandler );
+        window.removeEventListener ( 'click', this.#focusHandler );
     }
 
     show () {
