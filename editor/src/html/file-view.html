@@ -11,6 +11,9 @@
     ::slotted(file-folder), ::slotted(file-node) {
         display: block;
     }
+    :host(.drop-target) {
+        outline: 1px solid lightblue;
+    }
     #menu-wrapper {
         position: relative;
     }
@@ -20,5 +23,5 @@
 </style>
 <div id="menu-wrapper">
     <slot id="slot"></slot>
-    <file-options id="menu">
-</file-options></div>
+    <file-options id="menu"></file-options>
+</div>

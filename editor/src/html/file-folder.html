@@ -6,7 +6,7 @@
         outline: none;
     }
     :host(.selected) #wrapper {
-        background: #efefef;
+        background: #ddd;
     }
     :host([expanded]) #content {
         display: inline-block;
@@ -15,6 +15,9 @@
     }
     :host([expanded]) #slot {
         display: block;
+    }
+    :host(.drop-target) {
+        outline: 1px solid lightblue;
     }
     #content, #icon, #name {
         margin: 0.0625em;

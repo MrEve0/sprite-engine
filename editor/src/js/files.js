@@ -1,10 +1,13 @@
+( () => {
 let icon_glyphs = "˃🖿🗋🗎🖽🎝📽👁🗑🗕🗖🗙";
 
 const   fs = require ( 'fs' ),
+        fsp = require ( 'fs/promises' ),
         path = require ( 'path' ),
-        guids = new Set (),
         mime = require ( 'mime-types' ),
         trash = require ( 'trash' ),
+        { Buffer } = require ( 'buffer' ),
+        { guid, guids } = require ( '../src/shared/util.js' ),
         fileViewTemplate = document.createElement ( 'template' ),
         fileFolderTemplate = document.createElement ( 'template' ),
         fileNodeTemplate = document.createElement ( 'template' ),
@@ -18,21 +21,61 @@ const   fs = require ( 'fs' ),
             text: '🗋',
             video: '📽'
         },
-        autoIndex = ( parent, name ) => {
-            let ext = path.extname ( name ),
-                dirname = path.dirname ( name ),
-                basename = path.basename ( name ),
-                root = basename.slice ( 0, basename.lastIndexOf ( ext ) ),
-                sibling = null,
-                indexed = root.match ( /\((\d+)\)$/ ),
-                index = indexed ? Number ( indexed [ 1 ] ) + 1 : 1;
+        autoIndex = ( parent, name, isDir ) => {
+            let ext, basename, root, indexed, index, sibling = null;
+            if ( isDir ) {
+                ext = '';
+                root = path.basename ( name );
+            } else {
+                ext = path.extname ( name );
+                basename = path.basename ( name );
+                root = basename.slice ( 0, basename.lastIndexOf ( ext ) );
+            }
+
+            indexed = root.match ( /\((\d+)\)$/ );
+            index = indexed ? Number ( indexed [ 1 ] ) + 1 : 1;
 
             while ( sibling = parent.querySelector ( `:scope > [name="${root}"]` ) ) {
                 root = root.replace ( /(\(\d+\))?$/, `(${index})` );
                 index += 1;
             }
 
-            return path.join ( dirname, root + ext );
+            return path.join ( path.dirname ( name ), root + ext );
+        },
+        createFolder = ( target, folderName ) => {
+            let folderPath = target.name ? path.join ( target.path, target.name ) : target.path;
+
+            fs.mkdir ( path.join ( folderPath, folderName ), err => {
+
+                if ( err ) throw err;
+
+                let folder = document.createElement ( 'file-folder' );
+                folder.name = folderName;
+                folder.path = folderPath;
+                target.prepend ( folder );
+                setTimeout ( () => {
+                    folder.editName ();
+                }, 0 );
+            } );
+        },
+        createFile = ( target, fileName, data ) => {
+            let filePath = target.name ? path.join ( target.path, target.name ) : target.path,
+                args = [ path.join ( filePath, name ) ];
+
+            if ( !data ) args.push ( 'utf8' );
+
+            fs.writeFile ( ...args, err => {
+                if ( err ) throw err;
+
+                let file = document.createElement ( 'file-node' );
+                file.name = fileName;
+                file.path = filePath;
+                target.append ( file );
+
+                setTimeout ( () => {
+                    file.editName ();
+                }, 0 );
+            } );
         };
 
 if ( !require.extensions [ '.html' ] ) {
@@ -46,23 +89,13 @@ fileFolderTemplate.innerHTML = require ( '../src/html/file-folder.html' ).replac
 fileNodeTemplate.innerHTML = require ( '../src/html/file-node.html' ).replace ( /\n\s*/g, '' );
 fileOptionsMenuTemplate.innerHTML = require ( '../src/html/file-options.html' ).replace ( /\n\s*/g, '' );
 
-function guid () {
-    let store = new Uint32Array ( 1 ),
-        uuid;
-    do {
-        uuid = [].map.call ( crypto.getRandomValues ( store ), v => v.toString ( 16 ) ).join ( '' ).padStart ( 8, 0 );
-    } while ( document.getElementById ( uuid ) );
-    guids.add ( uuid );
-    return uuid;
-}
-
 class FileView extends HTMLElement {
 
     #shadow = null;
     #slot = null;
     #menu = null;
     #selected = null;
-    #clickHandler = null;
+    #draggedOpen = null;
 
     constructor () {
         super ();
@@ -72,13 +105,24 @@ class FileView extends HTMLElement {
         this.#slot = this.#shadow.getElementById ( 'slot' );
         this.#menu = this.#shadow.getElementById ( 'menu' );
         this.#selected = new Set ();
-        this.#clickHandler = event => {
-            if ( !this.contains ( event.target ) ) {
-                this.#selected.forEach ( el => el.classList.remove ( 'selected' ) );
-                this.#selected.clear ();
-            }
-        }
+        this.#draggedOpen = new Set ();
 
+        // key/mouse focus traversal
+        this.addEventListener ( 'focus', event => console.log ( 'file view focused...' ) );
+
+        // should be triggered by keypress when has focus
+        this.addEventListener ( 'paste', event => {
+            console.log ( 'paste' );
+            let selected = [ ...this.#selected ];
+            selected = selected [ selected.length - 1 ];
+            if ( selected.tagName === 'FILE-NODE' ) selected = selected.parentElement;
+
+            navigator.clipboard.read ().then ( data => {
+                for ( let item of data ) console.log ( item.types );
+            } );
+        } );
+
+        // all menu commands take this route
         this.addEventListener ( 'file-option', event => {
             let options = this.#userInteractions;
             if ( event.detail in options ) {
@@ -86,16 +130,18 @@ class FileView extends HTMLElement {
             }
         } );
 
+        // for showing the menu on right click
         this.addEventListener ( 'pointerup', event => {
             if ( event.button === 2 ) {
                 event.preventDefault ();
                 let rect = this.getBoundingClientRect ();
                 this.#menu.style.top = ( event.clientY - rect.top ) + 'px';
                 this.#menu.style.left = ( event.clientX - rect.left ) + 'px';
-                this.#menu.show ();
+                this.#menu.show ( event );
             }
         } );
 
+        // select/multi-select
         this.addEventListener ( 'click', event => {
             const selectSiblingsFrom = ( first, last ) => {
                 while ( first ) {
@@ -135,8 +181,6 @@ class FileView extends HTMLElement {
                             selectSiblingsFrom ( first, last );
                         }
                     } else {
-                        this.#selected.forEach ( el => el.classList.remove ( 'selected' ) );
-                        this.#selected.clear ();
                         this.#selected.add ( event.target );
                         event.target.classList.add ( 'selected' );
                     }
@@ -153,21 +197,134 @@ class FileView extends HTMLElement {
                     this.#selected.clear ();
                     this.#selected.add ( event.target );
                     event.target.classList.add ( 'selected' );
+
+                    if ( event.target.tagName === 'FILE-FOLDER' ) event.target.expanded = !event.target.expanded;
                 }
             }
         } );
 
+        // expand folders on dragenter
+        // maintains a list of expanded folders
+        // if the list items do not contain the dragenter target ( parent folder for files, otherwise the folder )
+        // they are reverted to their previous state
+        // if the list does not contain the dragenter target, it is added
+        // this.addEventListener ( 'dragenter', event => {
+        //     console.log ( event.target );
+        //     let target = event.target.tagName === 'FILE-NODE' ? event.target.parentElement : event.target;
+        //     for ( let el of this.#draggedOpen ) {
+        //         let child = el;
+        //         while ( !child.contains ( target ) ) {
+        //             if ( this.#draggedOpen.has ( child ) ) {
+        //                 child.expanded = child.dataset.expanded === 'true';
+        //                 delete child.dataset.expanded;
+        //                 this.#draggedOpen.delete ( child );
+        //                 child = child.parentElement;
+        //             }
+        //         }
+        //     }
+        //     if ( target !== this && !this.#draggedOpen.has ( target ) ) {
+        //         this.#draggedOpen.add ( target );
+        //         target.dataset.expanded = target.expanded;
+        //         target.expanded = true;
+        //     }
+        // } );
+
+        // this.addEventListener ( 'dragend', event => {
+        //     // clean up
+        //     for ( let el of this.#draggedOpen ) {
+        //         el.expanded = el.dataset.expanded === 'true';
+        //         delete el.dataset.expanded;
+        //         this.#draggedOpen.delete ( el );
+        //     }
+        // } );
+
         this.addEventListener ( 'dragover', event => {
-            if ( guids.has ( event.dataTransfer.getData ( 'text' ) ) ) {
+            let target = event.target.tagName === 'FILE-NODE' ? event.target.parentElement : event.target;
+            if ( event.dataTransfer.files ) {
                 event.preventDefault ();
+                event.dataTransfer.dropEffect = 'copy';
+                target.classList.add ( 'drop-target' );
+            } else if ( !this.#selected.has ( target ) ) {
+                event.preventDefault ();
+                event.dataTransfer.dropEffect = 'move';
+                target.classList.add ( 'drop-target' );
+            }
+        } );
+
+        const removeDropTarget = event => {
+            let target = event.target.tagName === 'FILE-NODE' ? event.target.parentElement : event.target;
+            target.classList.remove ( 'drop-target' );
+        }
+
+        this.addEventListener ( 'dragleave', removeDropTarget );
+        this.addEventListener ( 'dragexit', removeDropTarget );
+        this.addEventListener ( 'dragend', removeDropTarget );
+        this.addEventListener ( 'drop', removeDropTarget );
+
+        this.addEventListener ( 'dragstart', event => {
+            if ( event.target !== this ) {
+                if ( !event.target.classList.contains ( 'selected' ) ) {
+                    for ( let node of this.#selected ) node.classList.remove ( 'selected' );
+                    this.#selected.clear ();
+                    this.#selected.add ( event.target );
+                    event.target.classList.add ( 'selected' );
+                }
                 event.dataTransfer.dropEffect = 'move';
             }
         } );
 
         this.addEventListener ( 'drop', event => {
-            if ( guids.has ( event.dataTransfer.getData ( 'text' ) ) ) {
+            let transfer = event.dataTransfer,
+                target = event.target.tagName === 'FILE-NODE' ? event.target.parentElement : event.target,
+                copyFiles = async ( parent, files, remove ) => {
+                    for ( let file of files ) {
+                        if ( ( await fsp.stat ( file.path ) ).isDirectory () ) {
+                            if ( path.join ( parent.path, parent.name || '', file.name ) !== file.path ) {
+                                let destFolder = autoIndex ( parent, path.join ( parent.path, parent.name || '', file.name ), true ),
+                                    subfolder = ( await fsp.readdir ( file.path ) ).map ( name => { path: path.join ( file.path, name ), name } );
+
+                                await fsp.mkdir ( destFolder );
+                                if ( file.node ) {
+                                    file.node.classList.remove ( 'selected' );
+                                    parent.append ( file.node );
+                                } else {
+                                    let folder = document.createElement ( 'file-folder' );
+                                    folder.name = path.basename ( destFolder )
+                                    folder.path = path.dirname ( destFolder );
+                                    parent.append ( folder );
+                                }
+                                await copyFiles ( folder, subfolder );
+                                if ( remove ) await fsp.rm ( file.path );
+                            }
+                        } else {
+                            if ( path.join ( parent.path, parent.name || '', file.name ) !== file.path ) {
+                                await fsp.copyFile ( file.path, autoIndex ( parent, path.join ( parent.path, parent.name || '', file.name ), false ) );
+                                if ( file.node ) {
+                                    parent.append ( file.node )
+                                } else {
+                                    let fileNode = document.createElement ( 'file-node' );
+                                    fileNode.name = file.name;
+                                    fileNode.path = path.join ( parent.path, parent.name || '' );
+                                    parent.append ( fileNode );
+                                }
+                                if ( remove ) await fsp.rm ( file.path );
+                            }
+                        }
+                    }
+                };
+
+            if ( transfer.files.length ) {
                 event.preventDefault ();
-                this.append ( document.getElementById ( event.dataTransfer.getData ( "text/plain" ) ) );
+                copyFiles ( target, transfer.files );
+            } else {
+                // negotiate valid drop target
+                // folders cannot be dropped inside themselves
+                if ( !this.#selected.has ( target ) ) {
+                    event.preventDefault ();
+                    copyFiles ( target, [ ...this.#selected ].map ( node => {
+                        return { path: path.join ( node.path, node.name ), name: node.name, node };
+                    } ), true );
+                }
             }
         } );
 
@@ -207,6 +364,8 @@ class FileView extends HTMLElement {
             let oldPath = path.join ( event.target.path, event.detail.oldName ),
                 newPath = path.join ( event.target.path, event.detail.newName );
 
+            if ( event.detail.type === 'folder' ) event.detail.callforward ();
+
             fs.rename ( oldPath, newPath, err => {
 
                 if ( err ) {
@@ -214,6 +373,7 @@ class FileView extends HTMLElement {
                 }
 
                 onslotchange ( event );
+                if ( event.detail.type === 'folder' ) event.detail.callback ();
             } );
         } );
 
@@ -246,137 +406,181 @@ class FileView extends HTMLElement {
     get #userInteractions() {
         return {
             'new-file': () => {
+                let target = this.#selected.length ? this.#selected [ this.#selected.length - 1 ] : this.#menu.target || this;
+                if ( target.tagName === 'FILE-NODE' ) target = target.parentElement;
+                if ( this.contains ( target ) ) createFile ( target, autoIndex ( target, 'newFile', false ), '' );
+            },
+            'new-folder': () => {
+                let target = this.#selected.length ? this.#selected [ this.#selected.length - 1 ] : this.#menu.target || this;
+                if ( target.tagName === 'FILE-NODE' ) target = target.parentElement;
+                if ( this.contains ( target ) ) createFolder ( target, autoIndex ( target, 'newFolder', true ) );
+            },
+            'rename': () => {
+                let target = this.#selected.length ? this.#selected [ this.#selected.length - 1 ] : this.#menu.target || this;
+                if ( this.contains ( target ) ) target.editName ();
+            },
+            'duplicate': () => {
+                const   copyFile = ( source, target, element ) => {
+                            fs.writeFileSync ( target, fs.readFileSync ( source ) );
+
+                            let newFile = document.createElement ( 'file-node' );
+                            newFile.name = path.basename ( target );
+                            newFile.path = element.path;
+                            element.parentElement.insertBefore ( newFile, element.nextSibling );
+                        },
+                        copyFolder = ( source, target, element ) => {
+                            let folder = path.join ( target, path.basename ( source ) ),
+                                files = fs.readdirSync ( source ),
+                                newFolder = document.createElement ( 'file-folder' );
+
+                            newFolder.name = path.basename ( target );
+                            newFolder.path = element.path;
+                            element.parentElement.insertBefore ( newFolder, element.nextSibling );
+
+                            if ( !fs.existsSync ( folder ) ) fs.mkdirSync ( folder );
+
+                            files.forEach ( file => {
+                                let cur = path.join ( element.path, file ),
+                                    node = null;
+                                if ( fs.lstatSync ( cur ).isDirectory () ) {
+                                    node = document.createElement ( 'file-folder' );
+                                    node.path = cur;
+                                    node.name = path.basename ( file );
+                                    newFolder.append ( node );
+                                    copyFolder ( cur, folder, node );
+                                } else {
+                                    node = document.createElement ( 'file-node' );
+                                    node.path = path.join ( newFolder.path, newFolder.name );
+                                    node.name = path.basename ( file );
+                                    newFolder.append ( node );
+                                    copyFile ( cur, folder, node );
+                                }
+                            } );
+
+                            return newFolder;
+                        };
                 let target = this.#selected.length ? this.#selected [ this.#selected.length - 1 ] : this;
-                if ( target.tagName === 'FILE-NODE' ) {
-                    target = target.parentElement;
-                }
-                if ( target === this || this.contains ( target ) ) {
-                    let filePath = target === this ? this.path : path.join ( target.path, target.name ),
-                        fullPath = autoIndex ( target, path.join ( filePath, 'newFile' ) ),
-                        fileName = path.basename ( fullPath );
-                    fs.writeFile ( fullPath, '', 'utf8', err => {
-
-                        if ( err ) {
-                            throw err;
-                        }
-
-                        let file = document.createElement ( 'file-node' );
-                        file.name = fileName;
-                        file.path = filePath;
-                        target.append ( file );
-
+                if ( this.contains ( target ) ) {
+                    let targetPath = target.path,
+                        name = target.name,
+                        src = path.join ( targetPath, name );
+                    if ( fs.lstatSync ( src ).isDirectory () ) {
+                        let folder = copyFolder ( src, autoIndex ( target.parentElement, src ), target );
+                        setTimeout ( () => {
+                            folder.editName ();
+                        }, 0 )
+                    } else {
+                        let file = copyFile ( src, autoIndex ( target.parentElement, src ), target );
                         setTimeout ( () => {
                             file.editName ();
                         }, 0 );
-                    } );
-                }
-            },
-            'new-folder': () => {
-                if ( target === this || this.contains ( target ) ) {
-                    target = target.tagName === 'FILE-NODE' ? target.parentElement : target;
-                    let folderPath = path.join ( target.path, target.name ),
-                        folderName = 'new folder',
-                        fullPath = autoIndex ( path.join ( folderPath, folderName ) );
-
-                    fs.mkdir ( fullPath, err => {
-
-                        if ( err ) {
-                            throw err;
-                        }
-
-                        let folder = document.createElement ( 'file-folder' );
-                        folder.name = folderName;
-                        folder.path = folderPath;
-                        target.prepend ( folder );
-                        setTimeout ( () => {
-                            folder.editName ();
-                        }, 0 );
-                    } );
-                }
-            },
-            'rename': () => {
-                if ( this.contains ( target ) ) {
-                    target.editName ();
-                }
-            },
-            'duplicate': () => {
-                if ( this.contains ( target ) ) {
-                    let path = target.path,
-                        name = target.name,
-                        src = path.join ( path, name ),
-                        dest = autoIndex ( target.parentElement, src );
-                    fs.copyFile ( src, dest, err => {
-
-                        if ( err ) {
-                            throw err;
-                        }
-
-                        let dup = target.cloneNode ( true );
-                        dup.name = name;
-                        dup.path = path;
-                        target.parentElement.insertBefore ( dup, target.nextSibling );
-                        setTimeout ( () => {
-                            dup.editName ();
-                        }, 0 );
-                    } );
+                    }
                 }
             },
             'delete': () => {
-                if ( this.contains ( target ) ) {
-                    trash ( path.join ( target.path, target.name ), { glob: false } ).then ( () => {
-                        target.parentElement.removeChild ( target );
-                    } );
-                    // fs.rm ( path.join ( target.path, target.name ), err => {
-                    //
-                    //     if ( err ) {
-                    //         throw err;
-                    //     }
-                    //
-                    //     target.parentElement.removeChild ( target );
-                    // } );
+                let selected = this.#selected.length ? this.#selected : [ this.#menu.target ];
+
+                for ( let target of selected ) {
+                    if ( this.contains ( target ) ) {
+                        trash ( path.join ( target.path, target.name ), { glob: false } ).then ( () => {
+                            target.remove ();
+                        } );
+                    }
                 }
             },
             'copy': () => {
-                if ( this.contains ( target ) ) {
-                    if ( target.tagName === "FILE-NODE" ) {
-                        fs.readFile ( path.join ( target.path, target.name ), ( err, data ) => {
-                            if ( err ) {
-                                throw err;
-                            }
 
-                            Object.entries ( {
-                                'text/plain': target.id,
-                                'text/html': target.outerHTML,
-                                [ mime.lookup ( target.name ) ]: data.buffer
-                            } ).forEach ( ( [ key, val ] ) => {
-                                navigator.clipboard.write ( [ new ClipboardItem ( {
-                                    [ key ]: new Blob ( [ val ], { type: key } )
-                                } ) ] );
-                            } );
-                        } );
+                const asyncCopy = async source => {
+                    let table = [],
+                        table_length = new Int32Array ( 1 ),
+                        sources = [], buffer, size = 0;
+                    if ( source.tagName === 'FILE-FOLDER' ) {
+                        for ( let child of [ ...source.children ] ) {
+                            let childsource = await asyncCopy ( child );
+                            buffer = await childsource.arrayBuffer ();
+                            sources.push ( buffer );
+                            size += buffer.byteLength;
+                        }
+                        table.push ( { name: source.name, type: 'folder', size } );
                     } else {
-                        let key = 'text/html';
-                        navigator.clipboard.write ( [ new ClipboardItem ( {
-                            [ key ]: new Blob ( [ target.outerHTML ], { type: key } )
-                        } ) ] );
+                        buffer = await fsp.readFile ( path.join ( source.path, source.name ) );
+                        sources.push ( buffer );
+                        table.push ( { name: source.name, type: 'file' } )
+                    }
+                    table = JSON.stringify ( table );
+                    table_length [ 0 ] = table.length;
+                    sources.unshift ( table_length, table );
+                    return new Blob ( sources, { type: 'application/octet-stream' } );
+                };
+
+                let selected = ( this.#selected.length ? this.#selected : [ this.#menu.target ] ).map ( item => item.id );
+
+                for ( let target of selected ) {
+                    if ( this.contains ( target ) ) {
+                        asyncCopy ( target ).then ( blob => {
+                            navigator.clipboard.write ( [ new ClipboardItem ( { 'text/plain': new Blob ( [ 'file-system-entry' ], { type: 'text/plain' } ), [ blob.type ]: blob } ) ] );
+                        } );
                     }
                 }
             },
             'cut': () => {
-                this.#userInteractions.copy ( target );
-                this.#userInteractions.delete ( target );
+                this.#userInteractions.copy ();
+                this.#userInteractions.delete ();
             },
             'paste': () => {
-                const updatePath = ( parent, path ) => {
-                        for ( let child of parent.children ) {
-                            child.path = path.join ( path, child.path );
-                            if ( child.tagName === "FILE-FOLDER" ) {
-                                updatePath ( child, child.path );
-                            }
-                        }
-                    };
+                const asyncReadEntry = async ( item ) => {
+                    let text, octet;
+                    if ( item.types.includes ( 'text/plain' ) ) text = await item.getType ( 'text/plain' );
+                    if ( item.types.includes ( 'application/octet-stream' ) ) octet = await item.getType ( 'application/octet-stream' );
+                    if ( text === 'file-system-entry' ) return await octet.arrayBuffer ();
+                },
+                asyncPaste = async ( target, buffer ) => {
+                    let headerLength = ( new Int32Array ( buffer.slice ( 0, 4 ) ) ) [ 0 ],
+                        entry = JSON.parse ( String.fromCharCodes ( new Uint8Array ( buffer.slice ( 4, headerLength + 4 ) ) ) ),
+                        data = buffer.slice ( headerLength + 4, entry.size + headerLength + 4 );
+                    if ( entry.type === 'folder' ) {
+                        let name = autoIndex ( target, entry.name, true ),
+                            folderPath = path.join ( target.path, target.name, name );
+                            confirm = fsp.mkdir ( folderPath, { recursive: true } );
 
-                if ( target === this || this.contains ( target ) ) {
+                        if ( confirm === folderPath ) {
+                            let view = document.createElement ( 'file-folder' );
+                            view.name = name;
+                            target.append ( view );
+                            await asyncPaste ( view, data );
+                        }
+                    } else {
+                        let name = autoIndex ( target, entry.name, false ),
+                            filePath = path.join ( target.path, target.name, name ),
+                            err = await fsp.writeFile ( filePath, data );
+
+                        if ( err ) throw err;
+
+                        let view = document.createElement ( 'file-node' );
+                        view.name = name;
+                        target.append ( view );
+                    }
+                },
+                asyncPasteItems = async ( target, items ) => {
+                    for ( let item of items ) {
+                        let buffer = await asyncReadEntry ( item );
+                        if ( buffer ) {
+                            await asyncPaste ( target, buffer );
+                        }
+                    }
+                };
+                const   updatePath = ( parent, path ) => {
+                            for ( let child of parent.children ) {
+                                child.path = path.join ( path, child.path );
+                                if ( child.tagName === "FILE-FOLDER" ) {
+                                    updatePath ( child, child.path );
+                                }
+                            }
+                        };
+
+                let target = this.#selected.length ? this.#selected [ this.#selected.length - 1 ] : this.#menu.target;
+
+                if ( this.contains ( target ) ) {
                     target = target.tagName === 'FILE-NODE' ? target.parentElement : target;
                     navigator.clipboard.read ().then ( data => {
                         for ( let item of data ) {
@@ -406,11 +610,13 @@ class FileView extends HTMLElement {
                 }
             },
             'copy-full-path': () => {
+                let selected = ( this.#selected.length ? this.#selected : [ this.#menu.target ] ).map ( item => path.join ( item.path, item.name ) );
+
                 if ( this.contains ( target ) ) {
-                    let type = 'text/plain';
+                    let type = 'application/json';
 
                     navigator.clipboard.write ( [ new ClipboardItem ( {
-                        [ type ]: new Blob ( [ path.join ( target.path, target.name ) ], { type } )
+                        [ type ]: new Blob ( [ JSON.stringify ( selected ) ], { type } )
                     } ) ] );
                 }
             }
@@ -437,11 +643,7 @@ class FileView extends HTMLElement {
     }
 
     connectedCallback () {
-        window.addEventListener ( 'click', this.#clickHandler );
-    }
-
-    disconnectedCallback () {
-        window.removeEventListener ( 'click', this.#clickHandler );
+        this.tabIndex = 0;
     }
 
     autoPopulate () {
@@ -480,6 +682,7 @@ class FileFolder extends HTMLElement {
 
     #shadow = null;
     #wrapper = null;
+    #watch = null;
     #name = null;
     #content = null;
     #slot = null;
@@ -495,35 +698,17 @@ class FileFolder extends HTMLElement {
         this.#name = this.#shadow.getElementById ( 'name' );
         this.#content = this.#shadow.getElementById ( 'content' );
         this.#slot = this.#shadow.getElementById ( 'slot' );
+        this.#watch = ( event, name ) => {
+            console.log ( event, name );
+        };
 
-        this.addEventListener ( 'click', event => {
-            if ( event.target === this ) {
-                if ( !( event.shiftKey || event.ctrlKey ) ) {
-                    this.expanded = !this.expanded;
-                }
-            }
-        } );
-
-        this.addEventListener ( 'dragstart', event => {
-            event.dataTransfer.setData ( 'text', event.target.id );
-            event.dataTransfer.dropEffect = 'move';
-        } );
-
-        this.addEventListener ( 'dragover', event => {
-            let id = event.dataTransfer.getData ( 'text' );
-            if ( guids.has ( id ) && id !== this.id ) {
-                event.preventDefault ();
-                event.dataTransfer.dropEffect = 'move';
-            }
-        } );
-
-        this.addEventListener ( 'drop', event => {
-            let id = event.dataTransfer.getData ( 'text' );
-            if ( guids.has ( id ) && id !== this.id ) {
-                event.preventDefault ();
-                this.append ( document.getElementById ( event.dataTransfer.getData ( 'text' ) ) );
-            }
-        } );
+        // this.addEventListener ( 'click', event => {
+        //     if ( event.target === this ) {
+        //         if ( !( event.shiftKey || event.ctrlKey ) ) {
+        //             this.expanded = !this.expanded;
+        //         }
+        //     }
+        // } );
 
         const   reorder = () => {
                     let children = this.#slot.assignedElements ().sort ( ( a, b ) => {
@@ -601,22 +786,31 @@ class FileFolder extends HTMLElement {
                         this.dispatchEvent ( new CustomEvent ( 'alert', { detail: { type: 'warning', message: 'invalid file name ""' }, bubbles: true, cancelable: true } ) );
                         this.editName ();
                     }, 0 );
-                } else if ( newVal !== path.basename ( oldVal || '' ) ) {
-                    if ( this.dispatchEvent ( new CustomEvent ( 'rename', { detail: { oldName: oldVal, newName: newVal }, bubbles: true, cancelable: true } ) ) ) {
-                        this.#name.textContent = newVal;
-                    } else {
-                        this.#updating = true;
-                        this.name = oldVal;
-                        this.#updating = false;
+                } else if ( oldVal && newVal && newVal !== path.basename ( oldVal || '' ) ) {
+                    if ( this.isConnected ) {
+                        if ( this.dispatchEvent ( new CustomEvent ( 'rename', { detail: { oldName: oldVal, newName: newVal, type: 'folder',
+                            callforward: () => fs.unwatchFile ( path.join ( this.path, this.name ), this.#watch ),
+                            callback: () => fs.watch ( path.join ( this.path, this.name ), this.#watch )
+                        }, bubbles: true, cancelable: true } ) ) ) {
+                            this.#name.textContent = newVal;
+                        } else {
+                            this.#updating = true;
+                            this.name = oldVal;
+                            this.#updating = false;
+                        }
                     }
                 }
             } else if ( name === 'path' ) {
                 newVal = path.normalize ( newVal || '' );
                 if ( newVal !== path.normalize ( oldVal || '' ) ) {
-                    if ( !this.dispatchEvent ( new CustomEvent ( 'move', { detail: { oldPath: oldVal, newPath: newVal }, bubbles: true, cancelable: true } ) ) ) {
-                        this.#updating = true;
-                        this.path = oldVal;
-                        this.#updating = false;
+                    if ( this.isConnected ) {
+                        fs.unwatchFile ( path.join ( this.path, this.name ), this.#watch );
+                        if ( !this.dispatchEvent ( new CustomEvent ( 'move', { detail: { oldPath: oldVal, newPath: newVal }, bubbles: true, cancelable: true } ) ) ) {
+                            this.#updating = true;
+                            this.path = oldVal;
+                            this.#updating = false;
+                        }
+                        fs.watch ( path.join ( this.path, this.name ), this.#watch );
                     }
                 }
             }
@@ -637,6 +831,7 @@ class FileFolder extends HTMLElement {
         this.#updating = true;
         this.path = this.parentElement.tagName === 'FILE-FOLDER' ? path.join ( this.parentElement.path, this.parentElement.name ) : path.normalize ( this.path || '' );
         this.name = this.#name.textContent = path.basename ( this.name || '' );
+        fs.watch ( path.join ( this.path, this.name ), this.#watch );
         this.#updating = false;
 
         let node = this, depth = 0;
@@ -648,24 +843,46 @@ class FileFolder extends HTMLElement {
         this.#wrapper.style.paddingLeft = `calc(${depth} * 2em)`;
     }
 
+    disconnectedCallback () {
+        fs.unwatchFile ( path.join ( this.path, this.name ), this.#watch );
+    }
+
     editName () {
         const handleSubmit = event => {
             if ( event.key === 'Enter' ) {
-                this.#name.contentEditable = false;
-                this.removeEventListener ( 'keydown', handleSubmit );
-                this.name = this.#name.textContent.trim ();
+                let name = this.#name.textContent.trim ();
+                if ( name ) {
+                    if ( name !== this.name ) {
+                        this.#name.contentEditable = false;
+                        this.removeEventListener ( 'keydown', handleSubmit );
+                        this.name = name;
+                    }
+                } else {
+                    event.preventDefault ();
+                }
             } else if ( event.key === 'Escape' ) {
                 this.#name.contentEditable = false;
                 this.removeEventListener ( 'keydown', handleSubmit );
-                this.name = this.getAttribute ( 'name' );
+                this.#updating = true;
+                this.#name.textContent = this.name = this.getAttribute ( 'name' );
+                this.#updating = false;
             }
         }
+        this.#name.addEventListener ( 'blur', event => this.#name.contentEditable = false, { once: true } );
         this.addEventListener ( 'keydown', handleSubmit );
         this.#name.contentEditable = true;
-        this.#name.focus ();
-        let range = document.createRange ();
-        range.setStart ( this.#name, 0 );
-        range.setEnd ( this.#name, this.#name.textContent.replace ( /(\.[^.\\/]*)?$/, '').length );
+        setTimeout ( () => {
+            this.#name.focus ();
+            if ( this.#name.textContent ) {
+                let range = document.createRange (),
+                    node = this.#name.childNodes [ 0 ],
+                    selection = window.getSelection ();
+                range.setStart ( node, 0 );
+                range.setEnd ( node, node.textContent.length );
+                selection.removeAllRanges ();
+                selection.addRange ( range );
+            }
+        }, 0 );
     }
 }
 
@@ -685,11 +902,6 @@ class FileNode extends HTMLElement {
         this.#name = this.#shadow.getElementById ( 'name' );
         this.#icon = this.#shadow.getElementById ( 'icon' );
         this.#slot = this.#shadow.getElementById ( 'slot' );
-
-        this.addEventListener ( 'dragstart', event => {
-            event.dataTransfer.setData ( "text/plain", event.target.id );
-            event.dataTransfer.dropEffect = 'move';
-        } );
     }
 
     get name () {
@@ -722,11 +934,14 @@ class FileNode extends HTMLElement {
                         this.dispatchEvent ( new CustomEvent ( 'alert', { detail: { type: 'warning', message: 'invalid name ""' }, bubbles: true, cancelable: true } ) );
                         this.editName ();
                     }, 0 );
-                } else if ( path.basename ( newVal ) !== this.name ) {
-                    this.#name.textContent = newVal;
-                    let type = mime.lookup ( newVal );
-                    this.#icon.textContent = type ? icons [ type.split ( '/' ) [ 0 ] ] : icons.other;
-                    this.dispatchEvent ( new CustomEvent ( 'rename', { detail: { oldName: this.name, newName: newVal }, bubbles: true } ) );
+                } else if ( oldVal && newVal && path.basename ( newVal ) !== oldVal ) {
+                    if ( this.isConnected ) {
+                        if ( this.dispatchEvent ( new CustomEvent ( 'rename', { detail: { oldName:  oldVal, newName: newVal, type: 'file' }, bubbles: true } ) ) ) {
+                            this.#name.textContent = newVal;
+                            let type = mime.lookup ( newVal );
+                            this.#icon.textContent = type ? icons [ type.split ( '/' ) [ 0 ] ] : icons.other;
+                        }
+                    }
                 }
             } else if ( name === 'path' ) {
                 newVal = path.normalize ( newVal || '' );
@@ -751,6 +966,8 @@ class FileNode extends HTMLElement {
         this.#updating = true;
         this.path = this.parentElement.tagName === 'FILE-FOLDER' ? path.join ( this.parentElement.path, this.parentElement.name ) : path.normalize ( this.path || '' );
         this.name = this.#name.textContent = path.basename ( this.name || '' );
+        let type = mime.lookup ( this.name );
+        this.#icon.textContent = type ? icons [ type.split ( '/' ) [ 0 ] ] : icons.other;
         this.#updating = false;
 
         let node = this, depth = 0;
@@ -765,17 +982,23 @@ class FileNode extends HTMLElement {
     editName () {
         const handleSubmit = event => {
             if ( event.key === 'Enter' ) {
-                this.#name.contentEditable = false;
-                this.removeEventListener ( 'keydown', handleSubmit );
-                setTimeout ( () => {
-                    this.name = this.#name.textContent.trim ();
-                }, 0 );
+                let name = this.#name.textContent.trim ();
+                if ( name ) {
+                    this.#name.contentEditable = false;
+                    this.removeEventListener ( 'keydown', handleSubmit );
+                    this.name = name;
+                } else {
+                    event.preventDefault ();
+                }
             } else if ( event.key === 'Escape' ) {
                 this.#name.contentEditable = false;
                 this.removeEventListener ( 'keydown', handleSubmit );
+                this.#updating = true;
                 this.name = this.getAttribute ( 'name' );
+                this.#updating = false;
             }
         }
+        this.#name.addEventListener ( 'blur', event => this.#name.contentEditable = false, { once: true } );
         this.addEventListener ( 'keydown', handleSubmit );
         this.#name.contentEditable = true;
         setTimeout ( () => {
@@ -799,6 +1022,7 @@ class FileOptionsMenu extends HTMLElement {
     #content = null;
     #keyHandler = null;
     #focusHandler = null;
+    #target = null;
 
     constructor () {
         super ();
@@ -829,17 +1053,18 @@ class FileOptionsMenu extends HTMLElement {
     }
 
     connectedCallback () {
+        const onclick = event => {
+            let detail = event.currentTarget.dataset.value.toLowerCase ().split ( ' ' ).join ( '-' );
+            this.getRootNode ().host.dispatchEvent ( new CustomEvent ( 'file-option', { detail } ) );
+            this.#target = null;
+        };
         for ( let li of this.#content.children ) {
             if ( !li.children.length ) {
                 if ( li.dataset.value ) {
                     let span = document.createElement ( 'span' );
                     span.textContent = li.dataset.value;
                     li.append ( span );
-                    li.addEventListener ( 'click', event => {
-                        let detail = li.dataset.value.toLowerCase ().split ( ' ' ).join ( '-' );
-                        this.getRootNode ().host.dispatchEvent ( new CustomEvent ( 'file-option', { detail } ) );
-                        // console.log ( 'file-option', this.getRootNode ().host, detail );
-                    } );
+                    li.addEventListener ( 'click', onclick );
                 }
                 if ( li.dataset.hotkey ) {
                     let hotkey = li.dataset.hotkey.split ( '-' ),
@@ -863,7 +1088,12 @@ class FileOptionsMenu extends HTMLElement {
         window.removeEventListener ( 'click', this.#focusHandler );
     }
 
-    show () {
+    get target () {
+        return this.#target;
+    }
+
+    show ( event ) {
+        this.#target = event.target;
         this.classList.add ( 'active' );
     }
 
@@ -876,3 +1106,4 @@ customElements.define ( 'file-view', FileView );
 customElements.define ( 'file-folder', FileFolder );
 customElements.define ( 'file-node', FileNode );
 customElements.define ( 'file-options', FileOptionsMenu );
+} ) ();
