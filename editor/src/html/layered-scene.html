@@ -1,0 +1,24 @@
+<style>
+    :host {
+        display: block;
+        height: 100%;
+        background: black;
+    }
+    #slot {
+        display: block;
+        position: relative;
+        height: 100%;
+    }
+    ::slotted(*) {
+        display: none;
+    }
+    ::slotted(scene-layer) {
+        display: block;
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+    }
+</style>
+<slot id="slot"></slot>

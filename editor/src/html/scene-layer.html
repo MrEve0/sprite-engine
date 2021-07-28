@@ -1,0 +1,21 @@
+<style>
+    :host {
+        display: none;
+    }
+    :host([visible]) {
+        display: block;
+        height: 100%;
+    }
+    #wrapper {
+        display: block;
+        height: 100%;
+        position: relative;
+    }
+    #canvas {
+        width: 100%;
+        height: 100%;
+    }
+</style>
+<div id="wrapper">
+    <canvas id="canvas"></canvas>
+</div>
