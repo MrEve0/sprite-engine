@@ -129,7 +129,7 @@ class TabView extends HTMLElement {
 
     #shadow = null;
     #tabs = null;
-    #slot = null;
+    #content = null;
     #slotted = null;
     #tabbed = null;
     #updating = false;
@@ -141,12 +141,12 @@ class TabView extends HTMLElement {
         this.#shadow = this.attachShadow ( { mode: 'closed' } );
         this.#shadow.append ( tabViewTemplate.content.cloneNode ( true ) );
         this.#tabs = this.#shadow.getElementById ( 'tabs' );
-        this.#slot = this.#shadow.getElementById ( 'slot' );
+        this.#content = this.#shadow.getElementById ( 'content' );
         this.#slotted = new Map ();
         this.#tabbed = new Map ();
 
-        this.#slot.addEventListener ( 'slotchange', event => {
-            for ( let assigned of this.#slot.assignedElements () ) {
+        this.#content.addEventListener ( 'slotchange', event => {
+            for ( let assigned of this.#content.assignedElements () ) {
                 if ( !this.#slotted.has ( assigned ) ) {
                     let tab = document.createElement ( 'tab-item' );
                     tab.for = assigned.id;
@@ -187,28 +187,90 @@ class TabView extends HTMLElement {
                                         this.#dragging.classList.add ( 'dragging' );
                                         downthis.preventDefault ();
                                     }
-                                    this.#dragging.offsetx += movewin.movementX;
 
-                                    let list = document.elementsFromPoint ( movewin.clientX, movewin.clientY );
-                                    for ( let over of list ) {
-                                        if ( over !== this.#dragging && over.parentElement === this ) {
-                                            let order = over.compareDocumentPosition ( this.#dragging );
-                                            // DOCUMENT_POSITION_PRECEDING : 2
-                                            if ( order === 2 ) {
-                                                console.log ( 'reinserting before...' );
-                                                let rect = over.getBoundingClientRect ();
-                                                this.insertBefore ( this.#dragging, over );
-                                                this.#dragging.offsetx += rect.width;
-                                            // DOCUMENT_POSITION_FOLLOWING : 4
-                                            } else if ( order === 4 ) {
-                                                console.log ( 'reinserting after...' );
-                                                let rect = over.getBoundingClientRect ();
-                                                this.insertBefore ( this.#dragging, over.nextSibling );
-                                                this.#dragging.offsetx -= rect.width;
-                                            }
+                                    let rect = this.#tabs.getBoundingClientRect ();
 
-                                            break;
+                                    if ( movewin.clientX >= rect.left && movewin.clientX < rect.right ) {
+                                        let left = this.#dragging.previousSibling,
+                                            left_rect,
+                                            right = this.#dragging.nextSibling,
+                                            right_rect,
+                                            drag_rect = this.#dragging.getBoundingClientRect ();
+
+                                        this.#dragging.offsetx += movewin.movementX;
+                                        if ( drag_rect.left < rect.left ) {
+                                            this.#dragging.offsetx += rect.left - drag_rect.left;
+                                        } else if ( drag_rect.right > rect.right ) {
+                                            this.#dragging.offsetx -= drag_rect.right - rect.right;
                                         }
+
+                                        if ( left && movewin.clientX < ( left_rect = left.getBoundingClientRect () ).right ) {
+                                            this.#tabs.insertBefore ( this.#dragging, left );
+                                            this.#dragging.offsetx += left_rect.width;
+                                        } else if ( right && movewin.clientX >= ( right_rect = right.getBoundingClientRect () ).left ) {
+                                            this.#tabs.insertBefore ( this.#dragging, right.nextSibling );
+                                            this.#dragging.offsetx -= right_rect.width;
+                                        }
+
+                                        // let drag_rect = this.#dragging.getBoundingClientRect ();
+                                        // this.#dragging.offsetx += movewin.movementX;
+                                        // if ( drag_rect.left < rect.left ) {
+                                        //     this.#dragging.offsetx += rect.left - drag_rect.left;
+                                        // } else if ( drag_rect.right > rect.right ) {
+                                        //     this.#dragging.offsetx -= drag_rect.right - rect.right;
+                                        // }
+                                        // if ( this.#dragging.offsetx < 0 ) {
+                                        //
+                                        //     let sib, sib_rect, drag_rect;
+                                        //     if ( sib = this.#dragging.previousSibling ) {
+                                        //         sib_rect = sib.getBoundingClientRect ();
+                                        //         drag_rect = this.#dragging.getBoundingClientRect ();
+                                        //         let sib_pos = 0.5 * ( sib_rect.left + sib_rect.right ),
+                                        //             drag_pos = 0.5 * ( drag_rect.left + drag_rect.right );
+                                        //
+                                        //         if ( sib_pos < drag_pos ) {
+                                        //             this.#tabs.insertBefore ( this.#dragging, sib );
+                                        //             this.#dragging.offsetx += rect.width;
+                                        //         }
+                                        //     }
+                                        // } else if ( this.#dragging.offsetx > 0 ) {
+                                        //     let sib, sib_rect, drag_rect;
+                                        //     if ( sib = this.#dragging.nextSibling ) {
+                                        //         sib_rect = sib.getBoundingClientRect ();
+                                        //         drag_rect = this.#dragging.getBoundingClientRect ();
+                                        //         let sib_pos = 0.5 * ( sib_rect.left + sib_rect.right ),
+                                        //             drag_pos = 0.5 * ( drag_rect.left + drag_rect.right );
+                                        //
+                                        //         if ( sib_pos > drag_pos ) {
+                                        //             this.#tabs.insertBefore ( this.#dragging, sib.nextSibling );
+                                        //             this.#dragging.offsetx -= rect.width;
+                                        //         }
+                                        //     }
+                                        // }
+
+                                        // let list = this.#shadow.elementsFromPoint ( movewin.clientX, movewin.clientY );
+                                        // console.log ( list );
+                                        // for ( let over of list ) {
+                                        //     if ( over !== this.#dragging && over.parentElement === this ) {
+                                        //         let order = over.compareDocumentPosition ( this.#dragging );
+                                        //         console.log ( order )
+                                        //         // DOCUMENT_POSITION_PRECEDING : 2
+                                        //         if ( order === 2 ) {
+                                        //             console.log ( 'reinserting before...' );
+                                        //             let rect = over.getBoundingClientRect ();
+                                        //             this.insertBefore ( this.#dragging, over );
+                                        //             this.#dragging.offsetx += rect.width;
+                                        //         // DOCUMENT_POSITION_FOLLOWING : 4
+                                        //         } else if ( order === 4 ) {
+                                        //             console.log ( 'reinserting after...' );
+                                        //             let rect = over.getBoundingClientRect ();
+                                        //             this.insertBefore ( this.#dragging, over.nextSibling );
+                                        //             this.#dragging.offsetx -= rect.width;
+                                        //         }
+                                        //
+                                        //         break;
+                                        //     }
+                                        // }
                                     }
                                 }
                             },
@@ -269,7 +331,7 @@ class TabView extends HTMLElement {
                     if ( target.parentElement === this ) {
                         if ( oldVal ) {
                             let oldSlotted = document.getElementById ( oldVal );
-                            if ( oldSlotted ) oldTab.classList.remove ( 'active' );
+                            if ( oldSlotted ) oldSlotted.classList.remove ( 'active' );
                             let tab = this.#slotted.get ( oldSlotted );
                             if ( tab ) {
                                 tab.classList.remove ( 'active' );
@@ -310,6 +372,34 @@ class TabView extends HTMLElement {
             }
         }
     }
+
+    // append ( ...list ) {
+    //     let tabs = list.filter ( el => el.tagName === 'TAB-ITEM' && this.#queued_tabs.has ( el.id ) ? true : false ),
+    //         other = list.filter ( el => {
+    //             if ( el.tagName === 'TAB-ITEM' && this.#queued_tabs.has ( el.id ) ) {
+    //                 this.#queued_tabs.delete ( el.id );
+    //                 return false;
+    //             }
+    //             return true;
+    //         } );
+    //
+    //     this.#slot_tabs.append ( ...tabs );
+    //     this.#slot_content.append ( ...other );
+    // }
+    //
+    // appendChild ( ...list ) {
+    //     let tabs = list.filter ( el => el.tagName === 'TAB-ITEM' && this.#queued_tabs.has ( el.id ) ? true : false ),
+    //         other = list.filter ( el => {
+    //             if ( el.tagName === 'TAB-ITEM' && this.#queued_tabs.has ( el.id ) ) {
+    //                 this.#queued_tabs.delete ( el.id );
+    //                 return false;
+    //             }
+    //             return true;
+    //         } );
+    //
+    //     this.#slot_tabs.appendChild ( ...tabs );
+    //     this.#slot_content.appendChild ( ...other );
+    // }
 }
 
 customElements.define ( 'tab-item', TabItem );

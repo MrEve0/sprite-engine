@@ -19,11 +19,12 @@
         transform: translateY(-50%);
     }
     :host(.active) {
-        background-color: #ddd;
+        background-color: #cccccc;
     }
     :host(.dragging) #offset {
         outline: 1px solid #ddd;
         z-index: 100;
+        background-color: inherit;
     }
     #drag, #offset {
         position: relative;

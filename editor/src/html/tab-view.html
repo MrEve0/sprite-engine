@@ -2,6 +2,7 @@
     :host {
         display: block;
         height: 100%;
+        overflow: hidden;
     }
     :host(:focus) {
         outline: none;
@@ -20,12 +21,15 @@
     ::slotted(*) {
         display: none;
     }
+    #tabs tab-item {
+        background: #eeeeee;
+    }
     ::slotted(.active) {
         display: block;
         height: 100%;
     }
 </style>
 <div id="wrapper">
-    <div id="tabs"></div>
-    <slot id="slot"></slot>
+    <slot id="tabs" name="tabs"></slot>
+    <slot id="content"></slot>
 </div>
