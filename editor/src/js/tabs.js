@@ -194,15 +194,7 @@ class TabView extends HTMLElement {
                                         let left = this.#dragging.previousSibling,
                                             left_rect,
                                             right = this.#dragging.nextSibling,
-                                            right_rect,
-                                            drag_rect = this.#dragging.getBoundingClientRect ();
-
-                                        this.#dragging.offsetx += movewin.movementX;
-                                        if ( drag_rect.left < rect.left ) {
-                                            this.#dragging.offsetx += rect.left - drag_rect.left;
-                                        } else if ( drag_rect.right > rect.right ) {
-                                            this.#dragging.offsetx -= drag_rect.right - rect.right;
-                                        }
+                                            right_rect;
 
                                         if ( left && movewin.clientX < ( left_rect = left.getBoundingClientRect () ).right ) {
                                             this.#tabs.insertBefore ( this.#dragging, left );
@@ -212,66 +204,19 @@ class TabView extends HTMLElement {
                                             this.#dragging.offsetx -= right_rect.width;
                                         }
 
-                                        // let drag_rect = this.#dragging.getBoundingClientRect ();
-                                        // this.#dragging.offsetx += movewin.movementX;
-                                        // if ( drag_rect.left < rect.left ) {
-                                        //     this.#dragging.offsetx += rect.left - drag_rect.left;
-                                        // } else if ( drag_rect.right > rect.right ) {
-                                        //     this.#dragging.offsetx -= drag_rect.right - rect.right;
-                                        // }
-                                        // if ( this.#dragging.offsetx < 0 ) {
-                                        //
-                                        //     let sib, sib_rect, drag_rect;
-                                        //     if ( sib = this.#dragging.previousSibling ) {
-                                        //         sib_rect = sib.getBoundingClientRect ();
-                                        //         drag_rect = this.#dragging.getBoundingClientRect ();
-                                        //         let sib_pos = 0.5 * ( sib_rect.left + sib_rect.right ),
-                                        //             drag_pos = 0.5 * ( drag_rect.left + drag_rect.right );
-                                        //
-                                        //         if ( sib_pos < drag_pos ) {
-                                        //             this.#tabs.insertBefore ( this.#dragging, sib );
-                                        //             this.#dragging.offsetx += rect.width;
-                                        //         }
-                                        //     }
-                                        // } else if ( this.#dragging.offsetx > 0 ) {
-                                        //     let sib, sib_rect, drag_rect;
-                                        //     if ( sib = this.#dragging.nextSibling ) {
-                                        //         sib_rect = sib.getBoundingClientRect ();
-                                        //         drag_rect = this.#dragging.getBoundingClientRect ();
-                                        //         let sib_pos = 0.5 * ( sib_rect.left + sib_rect.right ),
-                                        //             drag_pos = 0.5 * ( drag_rect.left + drag_rect.right );
-                                        //
-                                        //         if ( sib_pos > drag_pos ) {
-                                        //             this.#tabs.insertBefore ( this.#dragging, sib.nextSibling );
-                                        //             this.#dragging.offsetx -= rect.width;
-                                        //         }
-                                        //     }
-                                        // }
-
-                                        // let list = this.#shadow.elementsFromPoint ( movewin.clientX, movewin.clientY );
-                                        // console.log ( list );
-                                        // for ( let over of list ) {
-                                        //     if ( over !== this.#dragging && over.parentElement === this ) {
-                                        //         let order = over.compareDocumentPosition ( this.#dragging );
-                                        //         console.log ( order )
-                                        //         // DOCUMENT_POSITION_PRECEDING : 2
-                                        //         if ( order === 2 ) {
-                                        //             console.log ( 'reinserting before...' );
-                                        //             let rect = over.getBoundingClientRect ();
-                                        //             this.insertBefore ( this.#dragging, over );
-                                        //             this.#dragging.offsetx += rect.width;
-                                        //         // DOCUMENT_POSITION_FOLLOWING : 4
-                                        //         } else if ( order === 4 ) {
-                                        //             console.log ( 'reinserting after...' );
-                                        //             let rect = over.getBoundingClientRect ();
-                                        //             this.insertBefore ( this.#dragging, over.nextSibling );
-                                        //             this.#dragging.offsetx -= rect.width;
-                                        //         }
-                                        //
-                                        //         break;
-                                        //     }
-                                        // }
+                                        this.#dragging.offsetx += movewin.movementX;
                                     }
+
+                                    let drag_rect = this.#dragging.getBoundingClientRect ();
+
+                                    if ( drag_rect.left < rect.left ) {
+                                        this.#dragging.offsetx += rect.left - drag_rect.left;
+                                    } else if ( drag_rect.right > rect.right ) {
+                                        this.#dragging.offsetx += rect.right - drag_rect.right;
+                                    }
+
+                                    console.log ( 'parent', rect );
+                                    console.log ( 'dragging', drag_rect );
                                 }
                             },
                             onupwin = upwin => {
