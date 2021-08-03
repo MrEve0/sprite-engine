@@ -1,5 +1,5 @@
 ( () => {
-let icon_glyphs = "˃🖿🗋🗎🖽🎝📽👁🗑🗕🗖🗙🔒︎";
+let icon_glyphs = '˃🖿🗋🗎🖽🎝📽👁🗑🗕🗖🗙🔒︎';
 
 const   { guid, guids } = require ( '../src/shared/util.js' ),
         fs = require ( 'fs' ),
@@ -7,7 +7,7 @@ const   { guid, guids } = require ( '../src/shared/util.js' ),
             let indexed = root.match ( /\((\d+)\)$/ ),
                 index = indexed ? Number ( indexed [ 1 ] ) + 1 : 1;
 
-            while ( sibling = parent.querySelector ( `:scope > [name="${root}"]` ) ) {
+            while ( sibling = parent.querySelector ( `:scope > [name=${root}]` ) ) {
                 name = name.replace ( /(\(\d+\))?$/, `(${index})` );
                 index += 1;
             }
@@ -53,7 +53,7 @@ class LayerView extends HTMLElement {
         this.#selected = new Set ();
         this.#clickHandler = event => {
             if ( event.target === this || !this.contains ( event.target ) ) {
-                this.#selected.forEach ( el => el.classList.remove ( 'selected' ) );
+                this.#selected.forEach ( el => el.classList.remove ( 'active' ) );
                 this.#selected.clear ();
             }
         };
@@ -67,35 +67,44 @@ class LayerView extends HTMLElement {
         } );
 
         this.addEventListener ( 'pointerdown', downthis => {
-            if ( downthis.target !== this && this.contains ( downthis.target ) ) {
+            if ( downthis.target.tagName === 'LAYER-NODE' ) {
+                let target = downthis.target;
                 if ( downthis.pointerType === 'mouse' && downthis.button === 1 || downthis.isPrimary ) {
                     const   onmovewin = movewin => {
                                 if ( movewin.pointerId === downthis.pointerId ) {
-                                    if ( !downthis.target.classList.contains ( 'dragging' ) ) {
-                                        downthis.target.classList.add ( 'dragging' );
-                                        this.#dragging = downthis.target;
+                                    if ( !this.#dragging ) {
+                                        this.#dragging = target;
+                                        this.#dragging.classList.add ( 'dragging' );
                                         downthis.preventDefault ();
                                     }
-                                    downthis.target.offsety += movewin.movementY;
 
-                                    let list = document.elementsFromPoint ( movewin.clientX, movewin.clientY );
-                                    for ( let over of list ) {
-                                        if ( over !== downthis.target && over.parentElement === this ) {
-                                            let order = over.compareDocumentPosition ( downthis.target );
-                                            // DOCUMENT_POSITION_PRECEDING : 2
-                                            if ( order === 2 ) {
-                                                let rect = over.getBoundingClientRect ();
-                                                this.insertBefore ( over, downthis.target );
-                                                downthis.target.offsety -= rect.height;
-                                            // DOCUMENT_POSITION_FOLLOWING : 4
-                                            } else if ( order === 4 ) {
-                                                let rect = over.getBoundingClientRect ();
-                                                this.insertBefore ( over, downthis.target.nextSibling );
-                                                downthis.target.offsety += rect.height;
-                                            }
+                                    let rect = this.getBoundingClientRect ();
 
-                                            break;
+                                    if ( movewin.clientY >= rect.top && movewin.clientY < rect.bottom ) {
+                                        let above = this.#dragging.previousElementSibling,
+                                            above_rect,
+                                            below = this.#dragging.nextElementSibling,
+                                            below_rect;
+
+                                        console.log ( above );
+
+                                        if ( above && movewin.clientY < ( above_rect = above.getBoundingClientRect () ).bottom ) {
+                                            this.insertBefore ( this.#dragging, above );
+                                            this.#dragging.offsety += above_rect.height;
+                                        } else if ( below && movewin.clientY >= ( below_rect = below.getBoundingClientRect () ).top ) {
+                                            this.insertBefore ( this.#dragging, below.nextSibling );
+                                            this.#dragging.offsety -= below_rect.height;
                                         }
+
+                                        this.#dragging.offsety += movewin.movementY;
+                                    }
+
+                                    let drag_rect = this.#dragging.offsetRect;
+
+                                    if ( drag_rect.top < rect.top ) {
+                                        this.#dragging.offsety += rect.top - drag_rect.top;
+                                    } else if ( drag_rect.bottom > rect.bottom ) {
+                                        this.#dragging.offsety += rect.bottom - drag_rect.bottom;
                                     }
                                 }
                             },
@@ -137,30 +146,30 @@ class LayerView extends HTMLElement {
 
                                                 while ( first ) {
                                                     this.#selected.add ( first );
-                                                    first.classList.add ( 'selected' );
+                                                    first.classList.add ( 'active' );
                                                     if ( first === last ) break;
                                                     first = first.nextSibling;
                                                 }
                                             }
                                         } else {
-                                            this.#selected.forEach ( el => el.classList.remove ( 'selected' ) );
+                                            this.#selected.forEach ( el => el.classList.remove ( 'active' ) );
                                             this.#selected.clear ();
                                             this.#selected.add ( clickthis.target );
-                                            clickthis.target.classList.add ( 'selected' );
+                                            clickthis.target.classList.add ( 'active' );
                                         }
                                     } else if ( clickthis.ctrlKey ) {
                                         if ( this.#selected.has ( clickthis.target ) ) {
                                             this.#selected.delete ( clickthis.target );
-                                            clickthis.target.classList.remove ( 'selected' );
+                                            clickthis.target.classList.remove ( 'active' );
                                         } else {
                                             this.#selected.add ( clickthis.target );
-                                            clickthis.target.classList.add ( 'selected' );
+                                            clickthis.target.classList.add ( 'active' );
                                         }
                                     } else {
-                                        this.#selected.forEach ( el => el.classList.remove ( 'selected' ) );
+                                        this.#selected.forEach ( el => el.classList.remove ( 'active' ) );
                                         this.#selected.clear ();
                                         this.#selected.add ( clickthis.target );
-                                        clickthis.target.classList.add ( 'selected' );
+                                        clickthis.target.classList.add ( 'active' );
                                     }
                                 }
                             },
@@ -175,7 +184,7 @@ class LayerView extends HTMLElement {
 
         this.#slot.addEventListener ( 'slotchange', event => {
             let assigned = this.#slot.assignedElements ();
-            assigned.filter ( child => child.tagName === "LAYER-NODE" ).forEach ( ( child, index ) => {
+            assigned.filter ( child => child.tagName === 'LAYER-NODE' ).forEach ( ( child, index ) => {
                 child.depth = index;
                 let target = document.getElementById ( child.target );
                 if ( !target ) {
@@ -399,6 +408,10 @@ class LayerNode extends HTMLElement {
 
     set offsety ( val ) {
         this.setAttribute ( 'offsety', Number ( val ) || 0 );
+    }
+
+    get offsetRect () {
+        return this.#offset.getBoundingClientRect ();
     }
 
     static get observedAttributes () { return [ 'name', 'visible', 'locked', 'depth', 'offsetx', 'offsety' ]; }
@@ -672,6 +685,7 @@ class SceneLayer extends HTMLElement {
     #canvas = null;
     #context = null;
     #resize = null;
+    #clearColor = null;
 
     constructor () {
         super ();
@@ -679,11 +693,45 @@ class SceneLayer extends HTMLElement {
         this.#shadow = this.attachShadow ( { mode: 'closed' } );
         this.#shadow.append ( sceneLayerTemplate.content.cloneNode ( true ) );
         this.#canvas = this.#shadow.getElementById ( 'canvas' );
-        this.#context = this.#canvas.getContext ( 'webgl' );
+        this.#context = this.#canvas.getContext ( 'webgl', { premultipliedAlpha: false } );
         this.#resize = event => {
             this.#canvas.width = this.#canvas.clientWidth;
             this.#canvas.height = this.#canvas.clientHeight;
+            let gl = this.#context;
+            gl.viewport ( 0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight );
+            gl.clearColor ( ...this.#clearColor );
+            gl.clear ( gl.COLOR_BUFFER_BIT );
         };
+        this.#clearColor = [ 0, 0, 0, 0 ];
+
+        new ResizeObserver ( entries => {
+            let entry = entries [ 0 ],
+                canvas = this.#canvas,
+                width, height,
+                dpr = window.devicePixelRatio,
+                gl = this.#context;
+            if ( entry.devicePixelContentBoxSize ) {
+                width = entry.devicePixelContentBoxSize [ 0 ].inlineSize;
+                height = entry.devicePixelContentBoxSize [ 0 ].blockSize;
+                dpr = 1; // it's already in width and height
+            } else if ( entry.contentBoxSize ) {
+                if ( entry.contentBoxSize [ 0 ] ) {
+                    width = entry.contentBoxSize [ 0 ].inlineSize;
+                    height = entry.contentBoxSize [ 0 ].blockSize;
+                } else {
+                    width = entry.contentBoxSize.inlineSize;
+                    height = entry.contentBoxSize.blockSize;
+                }
+            } else {
+                width = entry.contentRect.width;
+                height = entry.contentRect.height;
+            }
+            canvas.width = Math.round ( width * dpr );
+            canvas.height = Math.round ( height * dpr );
+            gl.viewport ( 0, 0, canvas.width, canvas.height );
+            gl.clearColor ( ...this.#clearColor );
+            gl.clear ( gl.COLOR_BUFFER_BIT );
+        } ).observe ( this.#canvas, { box: 'device-pixel-content-box' } );
     }
 
     get name () {
@@ -745,11 +793,33 @@ class SceneLayer extends HTMLElement {
         this.setAttribute ( 'depth', val );
     }
 
+    get clearColor () {
+        return this.#clearColor;
+    }
+
+    set clearColor ( val ) {
+        if ( val && ( typeof val === 'object' ) && ( Array.isArray ( val ) || ( ArrayBuffer.isView ( val ) && !( val instanceof DataView ) ) ) ) {
+            if ( val.length === 4 ) this.#clearColor = val;
+        }
+    }
+
     static get observedAttributes () { return [ 'name', 'height', 'width', 'visible', 'locked', 'depth' ] }
 
     attributeChangedCallback ( name, oldVal, newVal ) {
         if ( this.constructor.observedAttributes.includes ( name ) ) {
             this.dispatchEvent ( new CustomEvent ( 'attribute-changed', { detail: { name, oldVal, newVal }, bubbles: true, cancelable: true } ) );
+
+            if ( name === 'visible' ) {
+                if ( this.hasAttribute ( 'visible' ) ) {
+                    this.style.display = '';
+                } else {
+                    this.style.display = 'none';
+                }
+            } else if ( name === 'depth' ) {
+                if ( this.parentElement && this.parentElement.tagName === 'LAYERED-SCENE' ) {
+                    this.style.zIndex = [ ...this.parentElement.children ].filter ( node => node.tagName === 'SCENE-LAYER' ).length - this.depth;
+                }
+            }
         }
     }
 
@@ -764,12 +834,6 @@ class SceneLayer extends HTMLElement {
         } else if ( !guids.has ( id ) ) {
             guids.add ( id );
         }
-
-        window.addEventListener ( 'resize', this.#resize );
-    }
-
-    disconnectedCallback () {
-        window.removeEventListener ( 'resize', this.#resize );
     }
 }
 

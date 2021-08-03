@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html class="dark">
     <head>
         <meta charset="utf-8">
         <title>Sprite Engine Map Editor</title>
@@ -12,7 +12,6 @@
                 padding: 0;
                 height: 100%;
                 color: #666;
-                background-color: white;
             }
             #row {
                 display: flex;
@@ -46,6 +45,12 @@
                 z-index: -1;
             }
             html {
+                background-color: white;
+            }
+            html.dark {
+                mix-blend-mode: difference;
+            }
+            html.dark layered-scene {
                 mix-blend-mode: difference;
             }
         </style>
@@ -58,7 +63,7 @@
             <div id="center">
                 <tab-view id="tab-view" active="scene">
                     <layered-scene id="scene" name="test"></layered-scene>
-                    <layered-scene id="scene2" name="test2"></layered-scene>
+                    <!--<layered-scene id="scene2" name="test2"></layered-scene>-->
                 </tab-view>
             </div>
             <div id="right">
@@ -66,25 +71,22 @@
                     <layer-node name="test1" visible></layer-node>
                     <layer-node name="test2" visible></layer-node>
                 </layer-view>
-                <layer-view id="layers" target="scene2">
+                <layer-view id="layers2" target="scene2">
                     <layer-node name="test3" visible></layer-node>
                     <layer-node name="test4" visible></layer-node>
                 </layer-view>
             </div>
         </div>
         <div id="dark-screen"></div>
-        <!--
-            <file-folder name="test">
-                <file-node name="some.txt"></file-node>
-                <file-node name="test.jpg"></file-node>
-                <file-folder name="js"></file-folder>
-                <file-folder name="html"></file-folder>
-            </file-folder>
-            <file-node name="an.mp4"></file-node>
-            <file-node name="my.mp3"></file-node>
-        -->
         <script>
             document.getElementById ( 'file-view' ).autoPopulate ();
+            let scene1 = document.getElementById ( 'scene' ),
+                scene2 = document.getElementById ( 'scene2' );
+
+            scene1.children [ 0 ].clearColor = [ 0.25, 0, 0, 0.25 ];
+            scene1.children [ 1 ].clearColor = [ 0, 1, 0, 1 ];
+            // scene2.children [ 0 ].clearColor = [ 0, 0, 0.5, 0.25 ];
+            // scene2.children [ 1 ].clearColor = [ 0.5, 0, 0, 0.25 ];
         </script>
     </body>
 </html>

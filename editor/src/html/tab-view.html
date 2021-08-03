@@ -2,7 +2,6 @@
     :host {
         display: block;
         height: 100%;
-        overflow: hidden;
     }
     :host(:focus) {
         outline: none;
@@ -10,19 +9,22 @@
     #wrapper {
         display: flex;
         flex-direction: column;
+        height: 100%;
     }
     #tabs {
         flex: 0 0 auto;
         display: flex;
     }
-    #slot {
+    #content {
         flex: 1 0 auto;
+        display: flex;
+        flex-direction: column;
     }
     ::slotted(*) {
         display: none;
     }
     #tabs tab-item {
-        background: #eeeeee;
+        background-color: #eeeeee;
     }
     ::slotted(.active) {
         display: block;

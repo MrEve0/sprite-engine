@@ -18,16 +18,16 @@
         top: 50%;
         transform: translateY(-50%);
     }
-    :host(.active) {
-        background-color: #cccccc;
+    :host(.active), :host(.active) #offset {
+        background-color: #dfdfdf;
     }
     :host(.dragging) #offset {
-        outline: 1px solid #ddd;
+        outline: 1px solid #cfcfcf;
         z-index: 100;
-        background-color: inherit;
     }
     #drag, #offset {
         position: relative;
+        background-color: inherit;
     }
     #offset {
         flex: 1 0 auto;

@@ -43,11 +43,9 @@ class TabItem extends HTMLElement {
     }
 
     set for ( val ) {
-        let target = document.getElementById ( val );
-        if ( target && target.parentElement === this.parentElement ) {
+        if ( val ) {
             this.setAttribute ( 'for', val );
-            this.title = target.name || '';
-        } else if ( !val ) {
+        } else {
             this.removeAttribute ( 'for' );
         }
     }
@@ -80,28 +78,16 @@ class TabItem extends HTMLElement {
         this.setAttribute ( 'offsety', Number ( val ) || 0 );
     }
 
+    get offsetRect () {
+        return this.#offset.getBoundingClientRect ();
+    }
+
     attributeChangedCallback ( name, oldVal, newVal ) {
         if ( !this.#updating ) {
             if ( name === 'for' ) {
                 let target = document.getElementById ( newVal );
                 if ( target ) {
-                    if ( target.parentElement === this.parentElement ) {
-                        this.name = target.name;
-                    } else {
-                        let oldTab = document.getElementById ( oldVal );
-                        if ( oldTab && oldTab.parentElement === this.parentElement ) {
-                            this.#updating = true;
-                            this.setAttribute ( 'for', oldVal );
-                            this.#updating = false;
-                        } else {
-                            this.#updating = true;
-                            this.removeAttribute ( 'for' );
-                            this.removeAttribute ( 'name' );
-                            this.#updating = false;
-                        }
-                    }
-                } else if ( !newVal ) {
-                    this.removeAttribute ( 'active' );
+                    this.name = target.name;
                 }
             } else if ( name === 'name' ) {
                 this.#name.textContent = newVal || '';
@@ -150,7 +136,6 @@ class TabView extends HTMLElement {
                 if ( !this.#slotted.has ( assigned ) ) {
                     let tab = document.createElement ( 'tab-item' );
                     tab.for = assigned.id;
-                    tab.name = assigned.name;
                     this.#slotted.set ( assigned, tab );
                     this.#tabbed.set ( tab, assigned );
                     this.#tabs.append ( tab );
@@ -162,18 +147,6 @@ class TabView extends HTMLElement {
                     }
                 }
             }
-
-            // let active = document.getElementById ( this.active );
-            // console.log ( active, active.parentElement, this );
-            // if ( active && active.parentElement === this ) {
-            //     active.classList.add ( 'active' );
-            //     let tab = this.#slotted.get ( active );
-            //     if ( tab ) {
-            //         tab.classList.add ( 'active' );
-            //     }
-            // } else {
-            //     this.active = null;
-            // }
         } );
 
         this.#tabs.addEventListener ( 'pointerdown', downthis => {
@@ -191,9 +164,9 @@ class TabView extends HTMLElement {
                                     let rect = this.#tabs.getBoundingClientRect ();
 
                                     if ( movewin.clientX >= rect.left && movewin.clientX < rect.right ) {
-                                        let left = this.#dragging.previousSibling,
+                                        let left = this.#dragging.previousElementSibling,
                                             left_rect,
-                                            right = this.#dragging.nextSibling,
+                                            right = this.#dragging.nextElementSibling,
                                             right_rect;
 
                                         if ( left && movewin.clientX < ( left_rect = left.getBoundingClientRect () ).right ) {
@@ -207,16 +180,13 @@ class TabView extends HTMLElement {
                                         this.#dragging.offsetx += movewin.movementX;
                                     }
 
-                                    let drag_rect = this.#dragging.getBoundingClientRect ();
+                                    let drag_rect = this.#dragging.offsetRect;
 
                                     if ( drag_rect.left < rect.left ) {
                                         this.#dragging.offsetx += rect.left - drag_rect.left;
                                     } else if ( drag_rect.right > rect.right ) {
                                         this.#dragging.offsetx += rect.right - drag_rect.right;
                                     }
-
-                                    console.log ( 'parent', rect );
-                                    console.log ( 'dragging', drag_rect );
                                 }
                             },
                             onupwin = upwin => {
@@ -244,7 +214,7 @@ class TabView extends HTMLElement {
 
         this.#tabs.addEventListener ( 'click', event => {
             if ( event.target.parentElement === this.#tabs ) {
-                this.active = event.target.id;
+                this.active = event.target.for;
             }
         } );
 
@@ -265,7 +235,11 @@ class TabView extends HTMLElement {
     }
 
     set active ( val ) {
-        this.setAttribute ( 'active', val );
+        if ( val ) {
+            this.setAttribute ( 'active', val );
+        } else {
+            this.removeAttribute ( 'active' );
+        }
     }
 
     attributeChangedCallback ( name, oldVal, newVal ) {
@@ -277,28 +251,13 @@ class TabView extends HTMLElement {
                         if ( oldVal ) {
                             let oldSlotted = document.getElementById ( oldVal );
                             if ( oldSlotted ) oldSlotted.classList.remove ( 'active' );
-                            let tab = this.#slotted.get ( oldSlotted );
-                            if ( tab ) {
-                                tab.classList.remove ( 'active' );
-                            }
+                            let oldTab = this.#slotted.get ( oldSlotted );
+                            if ( oldTab ) oldTab.classList.remove ( 'active' );
                         }
                         let newSlotted = document.getElementById ( newVal );
-                        if ( newSlotted ) newTab.classList.add ( 'active' );
-                        let tab = this.#slotted.get ( newSlotted );
-                        if ( tab ) {
-                            tab.classList.add ( 'active' );
-                        }
-                    } else {
-                        let oldTab = document.getElementById ( oldVal );
-                        if ( oldTab && oldTab.parentElement === this ) {
-                            this.#updating = true;
-                            this.setAttribute ( 'active', oldVal );
-                            this.#updating = false;
-                        } else {
-                            this.#updating = true;
-                            this.removeAttribute ( 'active' );
-                            this.#updating = false;
-                        }
+                        if ( newSlotted ) newSlotted.classList.add ( 'active' );
+                        let newTab = this.#slotted.get ( newSlotted );
+                        if ( newTab ) newTab.classList.add ( 'active' );
                     }
                 } else if ( !newVal ) {
                     this.removeAttribute ( 'active' );
@@ -309,42 +268,7 @@ class TabView extends HTMLElement {
 
     connectedCallback () {
         this.tabIndex = 0;
-
-        if ( this.active ) {
-            let active = document.getElementById ( this.active );
-            if ( active && active.parentElement === this ) {
-                this.#slotted
-            }
-        }
     }
-
-    // append ( ...list ) {
-    //     let tabs = list.filter ( el => el.tagName === 'TAB-ITEM' && this.#queued_tabs.has ( el.id ) ? true : false ),
-    //         other = list.filter ( el => {
-    //             if ( el.tagName === 'TAB-ITEM' && this.#queued_tabs.has ( el.id ) ) {
-    //                 this.#queued_tabs.delete ( el.id );
-    //                 return false;
-    //             }
-    //             return true;
-    //         } );
-    //
-    //     this.#slot_tabs.append ( ...tabs );
-    //     this.#slot_content.append ( ...other );
-    // }
-    //
-    // appendChild ( ...list ) {
-    //     let tabs = list.filter ( el => el.tagName === 'TAB-ITEM' && this.#queued_tabs.has ( el.id ) ? true : false ),
-    //         other = list.filter ( el => {
-    //             if ( el.tagName === 'TAB-ITEM' && this.#queued_tabs.has ( el.id ) ) {
-    //                 this.#queued_tabs.delete ( el.id );
-    //                 return false;
-    //             }
-    //             return true;
-    //         } );
-    //
-    //     this.#slot_tabs.appendChild ( ...tabs );
-    //     this.#slot_content.appendChild ( ...other );
-    // }
 }
 
 customElements.define ( 'tab-item', TabItem );
