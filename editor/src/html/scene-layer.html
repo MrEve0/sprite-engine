@@ -1,0 +1,25 @@
+<style>
+    :host {
+        display: none;
+    }
+    :host([visible]) {
+        display: block;
+        height: 100%;
+    }
+    #wrapper {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        position: relative;
+    }
+    #canvas {
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 100%;
+        height: 100%;
+    }
+</style>
+<div id="wrapper">
+    <canvas id="canvas"></canvas>
+</div>

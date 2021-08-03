@@ -1,0 +1,45 @@
+<style>
+    :host {
+        display: block;
+        user-select: none;
+    }
+    :host(:focus) {
+        outline: none;
+    }
+    :host(.active) {
+        background: #efefef;
+    }
+    :host(.dragging) #offset {
+        outline: 1px dashed gray;
+        z-index: 100;
+    }
+    #visible, #locked, #name {
+        margin: 0.0625em;
+    }
+    #visible-content, #locked-content {
+        opacity: 0;
+    }
+    #visible:hover, #locked:hover {
+        outline: 1px solid gray;
+    }
+    :host([visible]) #visible-content {
+        opacity: 1;
+    }
+    :host([locked]) #locked-content {
+        opacity: 1;
+    }
+    #drag, #offset {
+        position: relative;
+        background-color: inherit;
+    }
+    #name:focus {
+        outline: none;
+    }
+</style>
+<div id="drag">
+    <div id="offset">
+        <span id="visible" title="visible"><span id="visible-content">👁</span></span>
+        <span id="locked" title="locked"><span id="locked-content">🔒︎</span></span>
+        <span id="name" title="name"></span>
+    </div>
+</div>

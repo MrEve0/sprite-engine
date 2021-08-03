@@ -1,0 +1,54 @@
+<style>
+    :host {
+        user-select: none;
+        flex: 1 1 auto;
+        max-width: 10em;
+        min-width: 1.5em;
+    }
+    :host(:hover) #close {
+        display: block;
+        width: 1.5em;
+        height: 1.5em;
+        border-radius: 100%;
+        font-size: 75%;
+        vertical-align: center;
+        text-align: center;
+        position: absolute;
+        right: 0;
+        top: 50%;
+        transform: translateY(-50%);
+    }
+    :host(.active), :host(.active) #offset {
+        background-color: #dfdfdf;
+    }
+    :host(.dragging) #offset {
+        outline: 1px solid #cfcfcf;
+        z-index: 100;
+    }
+    #drag, #offset {
+        position: relative;
+        background-color: inherit;
+    }
+    #offset {
+        flex: 1 0 auto;
+        display: flex;
+        align-items: center;
+    }
+    #name {
+        flex: 1 0 auto;
+        text-align: center;
+        padding: 0.125em;
+    }
+    #close {
+        display: none;
+    }
+    #close:hover {
+        background: goldenrod;
+        width: 1em;
+    }
+</style>
+<div id="drag">
+    <div id="offset">
+        <span id="name"></span><span id="close">🗙</span>
+    </div>
+</div>

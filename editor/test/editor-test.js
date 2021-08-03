@@ -2,7 +2,8 @@ const {
         app,
         BrowserWindow,
     } = require ( 'electron' ),
-    path = require ( 'path' );
+    path = require ( 'path' ),
+    fsp = require ( 'fs/promises' );
 
 require ( 'electron-reload' )( __dirname, {
     electron: path.join ( __dirname, 'node_modules', '.bin', 'electron' )
@@ -24,7 +25,12 @@ function buildUI () {
         }
     );
 
-    win.loadFile ( path.join ( __dirname, 'editor-test.html' ) );
+    // TODO: this is in dev mode, package without whitespace
+    fsp.readFile ( path.join ( __dirname, 'editor-test.html' ), 'utf8' ).then ( html => {
+        fsp.writeFile ( path.join ( __dirname, 'editor-test.temp.html' ), html.replace ( /\n\s*/g, '' ), 'utf8' ).then ( err => {
+            win.loadFile ( path.join ( __dirname, 'editor-test.temp.html' ) );
+        } );
+    } );
 }
 
 app.on ('ready', buildUI );

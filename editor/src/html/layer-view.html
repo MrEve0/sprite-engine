@@ -1,18 +1,17 @@
 <style>
     :host {
         display: block;
+        height: 100%;
     }
     slot {
         display: block;
+        height: 100%
     }
     ::slotted(*) {
         display: none;
     }
-    ::slotted(file-folder), ::slotted(file-node) {
+    ::slotted(layer-node) {
         display: block;
-    }
-    :host(.drop-target) {
-        outline: 1px solid lightblue;
     }
     #menu-wrapper {
         position: relative;
@@ -22,6 +21,7 @@
     }
 </style>
 <div id="menu-wrapper">
+    <div id="title"><span id="name"></span></div>
     <slot id="slot"></slot>
-    <file-options id="menu"></file-options>
+    <layer-options id="menu"></layer-options>
 </div>

@@ -1,0 +1,37 @@
+<style>
+    :host {
+        display: block;
+        height: 100%;
+    }
+    :host(:focus) {
+        outline: none;
+    }
+    #wrapper {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+    }
+    #tabs {
+        flex: 0 0 auto;
+        display: flex;
+    }
+    #content {
+        flex: 1 0 auto;
+        display: flex;
+        flex-direction: column;
+    }
+    ::slotted(*) {
+        display: none;
+    }
+    #tabs tab-item {
+        background-color: #eeeeee;
+    }
+    ::slotted(.active) {
+        display: block;
+        height: 100%;
+    }
+</style>
+<div id="wrapper">
+    <slot id="tabs" name="tabs"></slot>
+    <slot id="content"></slot>
+</div>
